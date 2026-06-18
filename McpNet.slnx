@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/McpNet.Core/McpNet.Core.csproj" />
+    <Project Path="src/McpNet.Gateway/McpNet.Gateway.csproj" />
+    <Project Path="src/McpNet.Gateway.Persistence/McpNet.Gateway.Persistence.csproj" />
+    <Project Path="src/McpNet.Transport.Http/McpNet.Transport.Http.csproj" />
+    <Project Path="src/McpNet.Transport.AspNetCore/McpNet.Transport.AspNetCore.csproj" />
+    <Project Path="src/McpNet.Transport.Stdio/McpNet.Transport.Stdio.csproj" />
+    <Project Path="src/McpNet.Dashboard/McpNet.Dashboard.csproj" />
+    <Project Path="src/McpNet.Host/McpNet.Host.csproj" />
+    <Project Path="src/McpNet.Cli/McpNet.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/McpNet.Tests/McpNet.Tests.csproj" />
+  </Folder>
+</Solution>

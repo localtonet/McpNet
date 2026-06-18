@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>mcpnet-gateway</AssemblyName>
+    <RootNamespace>McpNet.Host</RootNamespace>
+    <Nullable>enable</Nullable>
+
+    <!-- Self-contained single-file publish -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\McpNet.Gateway\McpNet.Gateway.csproj" />
+    <ProjectReference Include="..\McpNet.Gateway.Persistence\McpNet.Gateway.Persistence.csproj" />
+    <ProjectReference Include="..\McpNet.Transport.AspNetCore\McpNet.Transport.AspNetCore.csproj" />
+    <ProjectReference Include="..\McpNet.Dashboard\McpNet.Dashboard.csproj" />
+  </ItemGroup>
+
+  <!-- OpenTelemetry — optional observability. Instrumentation is always present but
+       only exports when McpGateway:Telemetry:Enabled = true (default off). -->
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
+  </ItemGroup>
+
+</Project>

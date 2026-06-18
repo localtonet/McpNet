@@ -1,0 +1,25 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# IDE / VS
+.vs/
+.vscode/
+*.user
+
+# Local data & secrets
+mcp-data/
+**/mcp-data/
+*.db
+*.db-shm
+*.db-wal
+
+# Git
+.git/
+.gitignore
+
+# Docs that don't affect the build
+*.md
+!README.md

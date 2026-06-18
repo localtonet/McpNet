@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>McpNet Gateway Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/dashboard.css" />
+  <style type="text/plain">
+    :root {
+      --bg: #0b0d13;
+      --bg-elev: #11141d;
+      --card: #161a24;
+      --card-hover: #1b1f2b;
+      --border: #232838;
+      --border-strong: #2f3548;
+      --accent: #6366f1;
+      --accent-2: #8b5cf6;
+      --accent-soft: rgba(99,102,241,.14);
+      --accent-hover: #818cf8;
+      --text: #eef0f6;
+      --text-dim: #c2c7d6;
+      --muted: #7d839b;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --shadow: 0 8px 28px rgba(0,0,0,.45);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,.25);
+      --sidebar-w: 248px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(99,102,241,.10), transparent 60%),
+        radial-gradient(1000px 500px at -10% 110%, rgba(139,92,246,.08), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent-hover); text-decoration: none; }
+    code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 6px; color: var(--text-dim); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a4256; }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+    /* ── Sidebar ────────────────────────────────────────── */
+    .sidebar {
+      background: linear-gradient(180deg, var(--bg-elev), var(--bg));
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100vh;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 12px;
+      padding: 22px 22px 18px;
+    }
+    .brand .logo {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid; place-items: center;
+      box-shadow: 0 6px 18px rgba(99,102,241,.4);
+      font-size: 18px; color: #fff;
+    }
+    .brand .brand-text { line-height: 1.2; }
+    .brand .brand-text strong { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+    .brand .brand-text span { font-size: 11px; color: var(--muted); }
+    .side-nav { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .side-nav .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 14px 12px 6px; font-weight: 600; }
+    .side-nav button {
+      display: flex; align-items: center; gap: 12px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim); font-family: var(--font); font-size: 13.5px; font-weight: 500;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      transition: background .15s, color .15s;
+      width: 100%; text-align: left;
+    }
+    .side-nav button svg { width: 18px; height: 18px; flex-shrink: 0; opacity: .8; }
+    .side-nav button:hover { background: rgba(255,255,255,.04); color: var(--text); }
+    .side-nav button.active { background: var(--accent-soft); color: var(--accent-hover); }
+    .side-nav button.active svg { opacity: 1; }
+    .side-nav button .count {
+      margin-left: auto; font-size: 11px; font-weight: 600;
+      background: rgba(255,255,255,.06); color: var(--muted);
+      padding: 1px 8px; border-radius: 10px; min-width: 22px; text-align: center;
+    }
+    .side-nav button.active .count { background: rgba(99,102,241,.25); color: var(--accent-hover); }
+    .side-foot { padding: 14px; border-top: 1px solid var(--border); }
+    .side-foot .auth-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .side-foot input#adminToken {
+      flex: 1; min-width: 0;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 10px; border-radius: var(--radius-sm); font-size: 12px; font-family: var(--mono);
+    }
+    .side-foot input#adminToken:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+    .status-dot.err { background: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
+    .mode-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .5px;
+      padding: 3px 9px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    }
+
+    /* ── Main ───────────────────────────────────────────── */
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 32px;
+      background: rgba(11,13,19,.72); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar .page-title { font-size: 19px; font-weight: 700; }
+    .topbar .page-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+    .topbar .spacer { flex: 1; }
+    .content { padding: 26px 32px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+    .tab { display: none; animation: fade .25s ease; }
+    .tab.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* ── Toolbar / Buttons ──────────────────────────────── */
+    .toolbar { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; flex-wrap: wrap; }
+    .toolbar h2 { font-size: 15px; font-weight: 600; flex: 1; color: var(--text-dim); }
+    .search {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 14px 8px 36px; border-radius: 20px; width: 280px; font-size: 13px; font-family: var(--font);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237d839b' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='M11 11l4 4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 12px center;
+    }
+    .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    button.btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+      border: none; padding: 9px 16px; border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--font);
+      transition: transform .12s, box-shadow .2s, filter .2s; box-shadow: 0 4px 14px rgba(99,102,241,.28);
+    }
+    button.btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    button.btn:active { transform: translateY(0); }
+    button.btn svg { width: 16px; height: 16px; }
+    button.btn.danger { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 14px rgba(239,68,68,.28); }
+    button.btn.ghost { background: transparent; border: 1px solid var(--border-strong); color: var(--text-dim); box-shadow: none; }
+    button.btn.ghost:hover { border-color: var(--accent); color: var(--accent-hover); background: var(--accent-soft); filter: none; }
+    button.btn.sm { padding: 6px 12px; font-size: 12px; box-shadow: none; }
+    .icon-btn {
+      display: inline-grid; place-items: center; width: 32px; height: 32px;
+      background: transparent; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); cursor: pointer; transition: .15s;
+    }
+    .icon-btn svg { width: 16px; height: 16px; }
+    .icon-btn:hover { color: var(--text); border-color: var(--border-strong); background: rgba(255,255,255,.03); }
+    .icon-btn.danger:hover { color: var(--danger); border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.08); }
+
+    /* ── Metric cards ───────────────────────────────────── */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 26px; }
+    .metric-card {
+      background: linear-gradient(160deg, var(--card), var(--bg-elev));
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px 18px 16px; position: relative; overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .metric-card::after { content: ''; position: absolute; right: -20px; top: -20px; width: 90px; height: 90px; border-radius: 50%; background: var(--accent-soft); filter: blur(6px); }
+    .metric-card .mc-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 12px; background: var(--accent-soft); color: var(--accent-hover); position: relative; z-index: 1; }
+    .metric-card .mc-icon svg { width: 20px; height: 20px; }
+    .metric-card .metric-value { font-size: 30px; font-weight: 800; line-height: 1; position: relative; z-index: 1; }
+    .metric-card .metric-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; font-weight: 600; position: relative; z-index: 1; }
+
+    /* ── Card / Table ───────────────────────────────────── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 13px 18px; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.015); }
+    td { padding: 14px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text-dim); }
+    tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover td { background: rgba(255,255,255,.025); }
+    td strong { color: var(--text); font-weight: 600; }
+    .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+    /* ── Chips ──────────────────────────────────────────── */
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
+    .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .chip.plain::before { display: none; }
+    .chip.green { background: rgba(34,197,94,.14); color: var(--success); }
+    .chip.red { background: rgba(239,68,68,.14); color: var(--danger); }
+    .chip.orange { background: rgba(245,158,11,.14); color: var(--warning); }
+    .chip.blue { background: rgba(99,102,241,.16); color: var(--accent-hover); }
+    .chip.gray { background: rgba(255,255,255,.05); color: var(--muted); }
+
+    /* ── Empty / loading ────────────────────────────────── */
+    .empty { text-align: center; color: var(--muted); padding: 56px 24px; }
+    .empty svg { width: 42px; height: 42px; opacity: .4; margin-bottom: 12px; }
+    .empty .empty-title { font-size: 14px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Catalog ────────────────────────────────────────── */
+    .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .cat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-sm); transition: border-color .15s, transform .12s; }
+    .cat-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+    .cat-head { display: flex; align-items: center; gap: 10px; }
+    .cat-logo { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-hover); font-weight: 700; font-size: 15px; flex-shrink: 0; }
+    .cat-title { font-size: 14.5px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .cat-cat { font-size: 11px; color: var(--muted); }
+    .cat-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; flex: 1; }
+    .cat-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .cat-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .cat-foot .spacer { flex: 1; }
+    .verified-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--success); }
+    .verified-badge svg { width: 13px; height: 13px; }
+    .cmd-preview { font-family: var(--mono); font-size: 11.5px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; color: var(--text-dim); word-break: break-all; }
+
+
+    /* ── Modal ──────────────────────────────────────────── */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(5,7,12,.66); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+    .modal-backdrop.open { display: flex; animation: fade .2s ease; }
+    .modal { background: var(--card); border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px; min-width: 440px; max-width: 560px; width: 100%; box-shadow: var(--shadow); animation: pop .22s cubic-bezier(.18,.89,.32,1.28); }
+    @keyframes pop { from { opacity: 0; transform: scale(.95) translateY(8px); } to { opacity: 1; transform: none; } }
+    .modal h3 { margin-bottom: 6px; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .modal .modal-desc { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .modal label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; margin-top: 14px; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
+    .modal input, .modal select, .modal textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); transition: .15s;
+    }
+    .modal input:focus, .modal select:focus, .modal textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .modal textarea { resize: vertical; min-height: 80px; font-family: var(--mono); }
+    .modal .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+    .modal-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; }
+    .modal-icon.warn { background: rgba(245,158,11,.14); color: var(--warning); }
+    .modal-icon svg { width: 20px; height: 20px; }
+
+    /* ── Toggle ─────────────────────────────────────────── */
+    .toggle-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border-strong); border-radius: 22px; transition: .2s; }
+    .toggle-slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    input:checked + .toggle-slider { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+    /* ── Toasts ─────────────────────────────────────────── */
+    #toastHost { position: fixed; top: 18px; right: 18px; z-index: 300; display: flex; flex-direction: column; gap: 10px; width: 360px; max-width: calc(100vw - 36px); }
+    .toast {
+      position: relative; overflow: hidden;
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--card); border: 1px solid var(--border-strong); border-left-width: 4px;
+      border-radius: var(--radius-sm); padding: 13px 14px; box-shadow: var(--shadow);
+      animation: toastIn .3s cubic-bezier(.18,.89,.32,1.28); 
+    }
+    .toast.out { animation: toastOut .25s ease forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(110%); } to { opacity: 1; transform: none; } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(110%); } }
+    .toast .t-icon { width: 22px; height: 22px; flex-shrink: 0; display: grid; place-items: center; }
+    .toast .t-icon svg { width: 20px; height: 20px; }
+    .toast .t-body { flex: 1; min-width: 0; }
+    .toast .t-title { font-weight: 600; font-size: 13.5px; color: var(--text); }
+    .toast .t-msg { font-size: 12.5px; color: var(--muted); margin-top: 2px; word-break: break-word; }
+    .toast .t-close { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px; border-radius: 5px; line-height: 0; }
+    .toast .t-close:hover { color: var(--text); background: rgba(255,255,255,.06); }
+    .toast .t-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: currentColor; opacity: .55; animation: tbar linear forwards; }
+    @keyframes tbar { from { width: 100%; } to { width: 0; } }
+    .toast.success { border-left-color: var(--success); } .toast.success .t-icon, .toast.success .t-bar { color: var(--success); }
+    .toast.danger  { border-left-color: var(--danger); }  .toast.danger .t-icon,  .toast.danger .t-bar  { color: var(--danger); }
+    .toast.warning { border-left-color: var(--warning); } .toast.warning .t-icon, .toast.warning .t-bar { color: var(--warning); }
+    .toast.info    { border-left-color: var(--info); }    .toast.info .t-icon,    .toast.info .t-bar    { color: var(--info); }
+
+    @media (max-width: 880px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; }
+      .side-nav { flex-direction: row; flex-wrap: wrap; flex: 1 1 100%; }
+      .side-nav .nav-label { display: none; }
+      .side-nav button .count { display: none; }
+    }
+
+    /* ── form-check-list (client permissions / server rate limits) ── */
+    .form-check-list { display: flex; flex-direction: column; gap: 4px; }
+    .form-check {
+      display: grid;
+      grid-template-columns: 18px 1fr auto auto;
+      align-items: center;
+      gap: 0 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .form-check:hover { border-color: var(--accent); background: rgba(99,102,241,.06); }
+    .form-check input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--accent);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .form-check input[type="checkbox"]:checked ~ .fc-main { color: var(--text); }
+    .fc-main { font-size: 13px; font-weight: 500; color: var(--text-dim); line-height: 1.3; }
+    .fc-sub  { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .fc-rate {
+      width: 80px; background: var(--bg-elev);
+      border: 1px solid var(--border); color: var(--text);
+      padding: 4px 8px; border-radius: 6px; font-size: 12px;
+      text-align: right;
+    }
+    .fc-rate:focus { outline: none; border-color: var(--accent); }
+    .fc-rate-hint { font-size: 11px; color: var(--muted); text-align: right; grid-column: 3 / span 2; margin-top: 2px; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- ── Sidebar ──────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">&#9670;</div>
+      <div class="brand-text">
+        <strong>McpNet</strong>
+        <span>Gateway Console</span>
+      </div>
+    </div>
+    <nav class="side-nav">
+      <div class="nav-label">Overview</div>
+      <button class="active" data-tab="overview" onclick="switchTab('overview', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </button>
+      <div class="nav-label">Manage</div>
+      <button data-tab="servers" onclick="switchTab('servers', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="6" rx="2"/><rect x="2" y="13" width="20" height="6" rx="2"/><path d="M6 6h.01M6 16h.01"/></svg>
+        Servers <span class="count" id="navCount-servers">0</span>
+      </button>
+      <button data-tab="catalog" onclick="switchTab('catalog', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8-4-8 4 8 4 8-4z"/><path d="M4 7v10l8 4 8-4V7M4 12l8 4 8-4"/></svg>
+        Catalog
+      </button>
+      <button data-tab="tools" onclick="switchTab('tools', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"/></svg>
+        Tools <span class="count" id="navCount-tools">0</span>
+      </button>
+      <button data-tab="groups" onclick="switchTab('groups', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M14 20c0-2 2-3.5 4-3.5"/></svg>
+        Groups <span class="count" id="navCount-groups">0</span>
+      </button>
+      <button data-tab="clients" onclick="switchTab('clients', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Clients <span class="count" id="navCount-clients">0</span>
+      </button>
+      <button data-tab="audit" onclick="switchTab('audit', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>
+        Audit Log
+      </button>
+      <div class="nav-label">System</div>
+      <button data-tab="settings" onclick="switchTab('settings', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </nav>
+    <div class="side-foot">
+      <div class="auth-row">
+        <input id="adminToken" type="password" placeholder="Admin token" title="X-Admin-Token (enterprise mode)" oninput="onTokenChange()" />
+      </div>
+      <div class="status-row">
+        <span class="status-dot" id="connDot"></span>
+        <span id="connText">Connecting…</span>
+        <span class="spacer" style="flex:1"></span>
+        <span class="mode-badge" id="modeBadge">DEV</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────── -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="pageTitle">Dashboard</div>
+        <div class="page-sub" id="pageSub">Gateway overview &amp; activity</div>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn ghost" onclick="reloadActive()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        Refresh
+      </button>
+    </div>
+    <div class="content">
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="tab active">
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="6" rx="2"/><rect x="2" y="13" width="20" height="6" rx="2"/><path d="M6 6h.01M6 16h.01"/></svg></div>
+        <div class="metric-value" id="mServers">—</div>
+        <div class="metric-label">Servers</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"/></svg></div>
+        <div class="metric-value" id="mTools">—</div>
+        <div class="metric-label">Tools (<span id="mToolsEnabled">0</span> enabled)</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/></svg></div>
+        <div class="metric-value" id="mGroups">—</div>
+        <div class="metric-label">Tool Groups</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+        <div class="metric-value" id="mClients">—</div>
+        <div class="metric-label">Clients</div>
+      </div>
+    </div>
+    <div class="toolbar"><h2>Recent Activity</h2><button class="btn ghost sm" onclick="loadOverview()">Refresh</button></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Time</th><th>Method</th><th>Client</th><th>Tool</th><th>Status</th></tr></thead>
+        <tbody id="overviewAuditBody"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SERVERS -->
+  <div id="tab-servers" class="tab">
+    <div class="toolbar">
+      <h2>Upstream Servers</h2>
+      <button class="btn ghost" onclick="refreshAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        Refresh Tools
+      </button>
+      <button class="btn" onclick="openAddServer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add Server
+      </button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>URL / Command</th><th>Transport</th><th>Auth</th><th>Health</th><th>Enabled</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="serverTableBody"><tr><td colspan="7" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CATALOG -->
+  <div id="tab-catalog" class="tab">
+    <div class="toolbar">
+      <h2>Server Catalog</h2>
+      <span id="catalogMeta" style="font-size:12px;color:var(--muted);margin-right:auto"></span>
+      <input id="catalogSearch" class="input" style="max-width:220px" placeholder="Search…" oninput="onCatalogSearch()" />
+      <button class="btn ghost" onclick="showAddCatalogModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add
+      </button>
+      <button class="btn ghost" onclick="loadCatalog()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        Refresh
+      </button>
+    </div>
+    <div id="catalogGrid" class="catalog-grid"><div class="empty"><span class="spinner"></span></div></div>
+  </div>
+
+  <!-- TOOLS -->
+  <div id="tab-tools" class="tab">
+    <div class="toolbar">
+      <h2>Aggregated Tools</h2>
+      <input id="toolSearch" class="search" placeholder="Search tools…" oninput="renderTools()" />
+    </div>
+    <div id="toolsDiag" class="card" style="display:none;padding:12px 14px;margin-bottom:12px;border-color:#4b3a12;background:linear-gradient(180deg, rgba(245,158,11,.10), rgba(245,158,11,.05));"></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Full Name</th><th>Server</th><th style="text-align:right">Enabled</th></tr></thead>
+        <tbody id="toolTableBody"><tr><td colspan="3" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- GROUPS -->
+  <div id="tab-groups" class="tab">
+    <div class="toolbar">
+      <h2>Tool Groups</h2>
+      <button class="btn" onclick="openAddGroup()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New Group
+      </button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Description</th><th>Tools</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="groupTableBody"><tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CLIENTS -->
+  <div id="tab-clients" class="tab">
+    <div class="toolbar">
+      <h2>MCP Clients</h2>
+      <button class="btn" onclick="openAddClient()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New Client
+      </button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Enabled</th><th>Allowed Servers</th><th>Allowed Groups</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="clientTableBody"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AUDIT -->
+  <div id="tab-audit" class="tab">
+    <div class="toolbar">
+      <h2>Audit Log</h2>
+      <input id="auditFilter" class="input" style="max-width:220px" placeholder="Filter client / server / tool…" oninput="renderAudit()" />
+      <select id="auditStatus" class="input" style="max-width:130px" onchange="renderAudit()">
+        <option value="">All status</option>
+        <option value="ok">Success</option>
+        <option value="err">Error</option>
+      </select>
+      <button class="btn ghost" onclick="exportAuditCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        Export CSV
+      </button>
+      <button class="btn ghost" onclick="loadAudit()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        Refresh
+      </button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Time</th><th>Method</th><th>Client</th><th>Server</th><th>Tool</th><th>Duration</th><th>Status</th></tr></thead>
+        <tbody id="auditTableBody"><tr><td colspan="7" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="tab">
+    <div class="toolbar"><h2>Gateway Information</h2></div>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-value" id="setMode">—</div><div class="metric-label">Mode</div></div>
+      <div class="metric-card"><div class="metric-value" id="setServers">—</div><div class="metric-label">Servers</div></div>
+      <div class="metric-card"><div class="metric-value" id="setTools">—</div><div class="metric-label">Tools</div></div>
+      <div class="metric-card"><div class="metric-value" id="setClients">—</div><div class="metric-label">Clients</div></div>
+    </div>
+    <div class="toolbar" style="margin-top:24px"><h2>Backup &amp; Restore</h2></div>
+    <div class="card" style="padding:20px">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Export the full gateway configuration (servers, groups, clients) as a JSON file, or import a previously exported config. Import skips entries whose name already exists.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn" onclick="exportConfig()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          Export Config
+        </button>
+        <button class="btn ghost" onclick="document.getElementById('importFile').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg>
+          Import Config
+        </button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)" />
+      </div>
+    </div>
+  </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Server Modal -->
+<div class="modal-backdrop" id="addServerModal">
+  <div class="modal">
+    <h3>Add Upstream Server</h3>
+    <label>Name *</label>
+    <input id="s_name" placeholder="my-server" />
+    <label>Transport Type</label>
+    <select id="s_transport" onchange="updateServerForm()">
+      <option value="StreamableHttp">Streamable HTTP</option>
+      <option value="Sse">SSE (legacy)</option>
+      <option value="Stdio">Stdio / subprocess</option>
+    </select>
+    <div id="s_httpFields">
+      <label>Server URL *</label>
+      <input id="s_url" placeholder="https://my-mcp-server/mcp" />
+      <label>Bearer Token (optional)</label>
+      <input id="s_token" type="password" placeholder="sk-…" />
+    </div>
+    <div id="s_stdioFields" style="display:none">
+      <label>Command *</label>
+      <input id="s_command" placeholder="npx my-mcp-server" />
+      <label>Args (one per line)</label>
+      <textarea id="s_args" placeholder="--arg1&#10;value1"></textarea>
+      <label>Working Directory (optional)</label>
+      <input id="s_workdir" placeholder="/path/to/workdir" />
+    </div>
+    <label>Custom Headers (one per line, key: value)</label>
+    <textarea id="s_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;color:var(--accent-hover);font-size:13px;font-weight:600">OAuth 2.0 (client credentials)</summary>
+      <div style="margin-top:10px">
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="s_oauth_enabled" style="width:16px;height:16px;accent-color:var(--accent)" /> Enable OAuth</label>
+        <label>Token URL</label>
+        <input id="s_oauth_url" placeholder="https://auth.example.com/oauth/token" />
+        <label>Client ID</label>
+        <input id="s_oauth_id" placeholder="client-id" />
+        <label>Client Secret</label>
+        <input id="s_oauth_secret" type="password" placeholder="client-secret" />
+        <label>Scopes (space separated)</label>
+        <input id="s_oauth_scopes" placeholder="read write" />
+      </div>
+    </details>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('addServerModal')">Cancel</button>
+      <button class="btn" onclick="addServer()">Add Server</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Group Modal -->
+<div class="modal-backdrop" id="addGroupModal">
+  <div class="modal">
+    <h3>New Tool Group</h3>
+    <label>Name *</label>
+    <input id="g_name" placeholder="my-group" />
+    <label>Description</label>
+    <input id="g_desc" placeholder="Optional description" />
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('addGroupModal')">Cancel</button>
+      <button class="btn" onclick="addGroup()">Create Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Client Modal -->
+<div class="modal-backdrop" id="addClientModal">
+  <div class="modal">
+    <h3>New MCP Client</h3>
+    <label>Name *</label>
+    <input id="c_name" placeholder="my-client" />
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('addClientModal')">Cancel</button>
+      <button class="btn" onclick="addClient()">Create Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Token Display Modal -->
+<div class="modal-backdrop" id="tokenModal">
+  <div class="modal">
+    <h3>
+      <span class="modal-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+      Client Token
+    </h3>
+    <p class="modal-desc">Copy this token now — it will not be shown again.</p>
+    <code id="tokenDisplay" style="display:block;word-break:break-all;padding:13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;"></code>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="copyToken()">Copy</button>
+      <button class="btn" onclick="closeModal('tokenModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal" style="min-width:400px">
+    <h3>
+      <span class="modal-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+      <span id="confirmTitle">Are you sure?</span>
+    </h3>
+    <p class="modal-desc" id="confirmMsg" style="white-space:pre-line">This action cannot be undone.</p>
+    <div class="modal-footer">
+      <button class="btn ghost" id="confirmCancel">Cancel</button>
+      <button class="btn danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
+<!-- Health Check Modal -->
+<div class="modal-backdrop" id="healthModal">
+  <div class="modal" style="max-width:500px">
+    <h3>
+      Server Health Check &nbsp;
+      <span id="hm_status" class="chip gray plain">Checking…</span>
+    </h3>
+    <p class="modal-desc" id="hm_name" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px"></p>
+    <div class="health-grid">
+      <div class="health-stat"><div class="hs-val" id="hm_latency">—</div><div class="hs-lbl">Latency</div></div>
+      <div class="health-stat"><div class="hs-val" id="hm_tools">—</div><div class="hs-lbl">Tools</div></div>
+    </div>
+    <label>Details</label>
+    <pre id="hm_log" style="max-height:220px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;margin-top:6px">…</pre>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('healthModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Path Input Modal (for catalog installs that need a directory) -->
+<div class="modal-backdrop" id="pathInputModal">
+  <div class="modal" style="max-width:480px">
+    <h3>Configure Installation</h3>
+    <p class="modal-desc" id="pathModal_desc"></p>
+    <label id="pathModal_label">Directory Path</label>
+    <input id="pathModal_input" placeholder="." />
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="pathModalReject()">Cancel</button>
+      <button class="btn" onclick="pathModalResolve()">Install</button>
+    </div>
+  </div>
+</div>
+
+<!-- Env Var Modal (API keys for catalog installs) -->
+<div class="modal-backdrop" id="envVarModal">
+  <div class="modal" style="max-width:500px">
+    <h3>API Keys Required</h3>
+    <p class="modal-desc">This server needs API keys to function. Enter them below — they will be passed as environment variables to the server process.</p>
+    <div id="envModal_body"></div>
+    <p class="modal-desc" id="envModal_note" style="margin-top:10px;font-size:12px;color:var(--muted)"></p>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="envModalReject()">Cancel</button>
+      <button class="btn" onclick="envModalResolve()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addCatalogModal">
+  <div class="modal" style="max-width:520px">
+    <h3>Add to Catalog</h3>
+    <p class="modal-desc">Add a custom MCP server to the catalog. The command will be run as a local process.</p>
+    <label>Name <span style="color:var(--danger)">*</span></label>
+    <input id="ac_title" class="input" placeholder="My MCP Server" style="width:100%;box-sizing:border-box" />
+    <label style="margin-top:10px;display:block">Command <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:var(--muted)">e.g. npx -y @myorg/my-mcp-server</span></label>
+    <input id="ac_command" class="input" placeholder="npx -y @myorg/my-mcp-server" style="width:100%;box-sizing:border-box;font-family:var(--mono);font-size:13px" />
+    <label style="margin-top:10px;display:block">Description <span style="font-size:11px;color:var(--muted)">(optional)</span></label>
+    <input id="ac_desc" class="input" placeholder="What does it do?" style="width:100%;box-sizing:border-box" />
+    <label style="margin-top:10px;display:block">Category</label>
+    <select id="ac_category" class="input" style="width:100%;box-sizing:border-box">
+      <option>Development</option>
+      <option>AI / ML</option>
+      <option>Database</option>
+      <option>Browser</option>
+      <option>Cloud</option>
+      <option>Productivity</option>
+      <option>Web &amp; Search</option>
+      <option>Communication</option>
+      <option>Monitoring</option>
+      <option>Finance</option>
+      <option>Design</option>
+      <option>Utilities</option>
+      <option>Local</option>
+      <option>Custom</option>
+    </select>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('addCatalogModal')">Cancel</button>
+      <button class="btn" onclick="submitAddCatalog()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tool Inspector Modal -->
+<div class="modal-backdrop" id="toolTestModal">
+  <div class="modal" style="max-width:680px">
+    <h3>Tool Inspector — <span id="tt_name" style="color:var(--accent-hover);font-family:var(--mono);font-size:14px"></span></h3>
+    <p class="modal-desc">Call this tool with JSON arguments and inspect the live result.</p>
+    <label>Arguments (JSON)</label>
+    <textarea id="tt_args" style="min-height:120px;font-family:var(--mono);font-size:12.5px" placeholder='{\n  "param": "value"\n}'>{}</textarea>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn" onclick="runToolTest()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg> Run</button>
+      <span class="spacer" style="flex:1"></span>
+      <span id="tt_status" style="font-size:12px;color:var(--muted);align-self:center"></span>
+    </div>
+    <label style="margin-top:14px">Result</label>
+    <pre id="tt_result" style="max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-word;color:var(--text-dim)">—</pre>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('toolTestModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Server Modal -->
+<div class="modal-backdrop" id="editServerModal">
+  <div class="modal">
+    <h3>Edit Server</h3>
+    <p class="modal-desc">Update the server configuration. Leave token blank to keep it unchanged.</p>
+    <label>Name *</label>
+    <input id="es_name" placeholder="my-server" />
+    <label>Transport Type</label>
+    <select id="es_transport" onchange="updateEditServerForm()">
+      <option value="StreamableHttp">Streamable HTTP</option>
+      <option value="Sse">SSE (legacy)</option>
+      <option value="Stdio">Stdio / subprocess</option>
+    </select>
+    <div id="es_httpFields">
+      <label>Server URL *</label>
+      <input id="es_url" placeholder="https://my-mcp-server/mcp" />
+      <label>Bearer Token (leave blank to keep unchanged)</label>
+      <input id="es_token" type="password" placeholder="sk-…" />
+    </div>
+    <div id="es_stdioFields" style="display:none">
+      <label>Command *</label>
+      <input id="es_command" placeholder="npx my-mcp-server" />
+      <label>Args (one per line)</label>
+      <textarea id="es_args" placeholder="--arg1&#10;value1"></textarea>
+      <label>Working Directory (optional)</label>
+      <input id="es_workdir" placeholder="/path/to/workdir" />
+    </div>
+    <label>Custom Headers (one per line, key: value)</label>
+    <textarea id="es_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;color:var(--accent-hover);font-size:13px;font-weight:600">OAuth 2.0 (client credentials)</summary>
+      <div style="margin-top:10px">
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="es_oauth_enabled" style="width:16px;height:16px;accent-color:var(--accent)" /> Enable OAuth</label>
+        <label>Token URL</label>
+        <input id="es_oauth_url" placeholder="https://auth.example.com/oauth/token" />
+        <label>Client ID</label>
+        <input id="es_oauth_id" placeholder="client-id" />
+        <label>Client Secret (leave blank to keep)</label>
+        <input id="es_oauth_secret" type="password" placeholder="client-secret" />
+        <label>Scopes (space separated)</label>
+        <input id="es_oauth_scopes" placeholder="read write" />
+      </div>
+    </details>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('editServerModal')">Cancel</button>
+      <button class="btn" onclick="saveEditServer()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Tools Modal -->
+<div class="modal-backdrop" id="groupToolsModal">
+  <div class="modal" style="max-width:640px">
+    <h3 id="gtModal_title">Manage Group Tools</h3>
+    <p class="modal-desc">Check tools to add them to this group; uncheck to remove.</p>
+    <div id="gtModal_body" style="max-height:400px;overflow-y:auto;margin-top:8px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('groupToolsModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Client Permissions Modal -->
+<div class="modal-backdrop" id="clientPermsModal">
+  <div class="modal" style="max-width:640px">
+    <h3>Permissions — <span id="cpModal_clientName" style="color:var(--accent-hover)"></span></h3>
+    <p class="modal-desc">Configure which servers and groups this client can access.</p>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">Client Enabled</span>
+      <label class="toggle-switch" style="margin-left:auto">
+        <input type="checkbox" id="cpModal_enabled" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">Rate Limit (req/min)</span>
+      <input type="number" id="cpModal_rate" min="0" style="margin-left:auto;width:110px;background:var(--bg-elev);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:13px" placeholder="0 = unlimited" />
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">Access Token</span>
+      <button class="btn ghost sm" style="margin-left:auto" onclick="regenerateToken()">Regenerate</button>
+    </div>
+    <div id="cpModal_body" style="max-height:400px;overflow-y:auto"></div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal('clientPermsModal')">Cancel</button>
+      <button class="btn" onclick="saveClientPerms()">Save Permissions</button>
+    </div>
+  </div>
+</div>
+
+<script src="/dashboard.js"></script>
+<script type="text/plain">
+  const BASE = '';
+  let servers = [], tools = [], groups = [], clients = [], auditLogs = [];
+
+  const PAGE_META = {
+    overview: ['Dashboard', 'Gateway overview & activity'],
+    servers:  ['Servers', 'Manage upstream MCP servers'],
+    catalog:  ['Catalog', 'Browse & install ready-made MCP servers'],
+    tools:    ['Tools', 'Aggregated tools across all servers'],
+    groups:   ['Groups', 'Logical groupings of tools'],
+    clients:  ['Clients', 'API clients & access tokens (enterprise)'],
+    audit:    ['Audit Log', 'Recent gateway request history'],
+    settings: ['Settings', 'Gateway configuration, backup & restore']
+  };
+
+  function headers() {
+    const t = document.getElementById('adminToken').value.trim();
+    const h = { 'Content-Type': 'application/json' };
+    if (t) h['X-Admin-Token'] = t;
+    return h;
+  }
+
+  function setConn(ok, text) {
+    const dot = document.getElementById('connDot');
+    dot.className = 'status-dot ' + (ok ? 'ok' : 'err');
+    document.getElementById('connText').textContent = text;
+  }
+
+  let gatewayMode = 'Dev';
+  async function loadInfo() {
+    try {
+      const r = await fetch(BASE + '/api/info');
+      if (!r.ok) return;
+      const info = await r.json();
+      gatewayMode = info.mode || 'Dev';
+      const badge = document.getElementById('modeBadge');
+      badge.textContent = (gatewayMode || 'Dev').toUpperCase();
+      const tokenInput = document.getElementById('adminToken');
+      if (info.requiresAuth) {
+        badge.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+        tokenInput.placeholder = 'Admin token (required)';
+      } else {
+        tokenInput.placeholder = 'Admin token (dev: optional)';
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function api(method, path, body) {
+    try {
+      const r = await fetch(BASE + '/api' + path, {
+        method,
+        headers: headers(),
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (r.status === 401) { setConn(false, 'Unauthorized'); toast('Unauthorized', 'Check your admin token.', 'danger'); return null; }
+      if (r.status === 204) { setConn(true, 'Connected'); return null; }
+      if (!r.ok) { setConn(false, 'Error ' + r.status); toast('Request failed', r.status + ' ' + r.statusText, 'danger'); return null; }
+      setConn(true, 'Connected');
+      return await r.json();
+    } catch (e) { setConn(false, 'Offline'); toast('Network error', e.message, 'danger'); return null; }
+  }
+
+  // ── Toast (top-right, stacking) ──────────────────────────
+  const TOAST_ICONS = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    danger:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+    info:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>'
+  };
+  const TOAST_TITLES = { success: 'Success', danger: 'Error', warning: 'Warning', info: 'Info' };
+
+  // toast(title, msg, type)  — or legacy toast(msg, type)
+  function toast(a, b, c) {
+    let title, msg, type;
+    if (c !== undefined || (b !== undefined && !['success','danger','warning','info'].includes(b))) {
+      title = a; msg = b || ''; type = c || 'info';
+    } else { type = b || 'info'; title = TOAST_TITLES[type]; msg = a; }
+    const host = document.getElementById('toastHost');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    const dur = 4200;
+    el.innerHTML = `
+      <span class="t-icon">${TOAST_ICONS[type] || TOAST_ICONS.info}</span>
+      <div class="t-body"><div class="t-title">${esc(title)}</div>${msg ? `<div class="t-msg">${esc(msg)}</div>` : ''}</div>
+      <button class="t-close" aria-label="close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="t-bar" style="animation-duration:${dur}ms"></span>`;
+    const remove = () => { el.classList.add('out'); setTimeout(() => el.remove(), 250); };
+    el.querySelector('.t-close').onclick = remove;
+    host.appendChild(el);
+    setTimeout(remove, dur);
+  }
+
+  // ── Confirm dialog (replaces native confirm) ─────────────
+  function confirmDialog({ title = 'Are you sure?', message = 'This action cannot be undone.', okText = 'Delete', danger = true } = {}) {
+    return new Promise(resolve => {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMsg').textContent = message;
+      const ok = document.getElementById('confirmOk');
+      const cancel = document.getElementById('confirmCancel');
+      ok.textContent = okText;
+      ok.className = 'btn ' + (danger ? 'danger' : '');
+      const done = (val) => { closeModal('confirmModal'); ok.onclick = null; cancel.onclick = null; resolve(val); };
+      ok.onclick = () => done(true);
+      cancel.onclick = () => done(false);
+      openModal('confirmModal');
+    });
+  }
+
+  function onTokenChange() { reloadActive(); }
+  function reloadActive() {
+    const active = document.querySelector('.tab.active');
+    const name = active ? active.id.replace('tab-', '') : 'overview';
+    loadTab(name);
+  }
+
+  function loadTab(name) {
+    if (name === 'overview') loadOverview();
+    if (name === 'servers') loadServers();
+    if (name === 'catalog') loadCatalog();
+    if (name === 'tools') loadTools();
+    if (name === 'groups') loadGroups();
+    if (name === 'clients') loadClients();
+    if (name === 'audit') loadAudit();
+    if (name === 'settings') loadSettings();
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.side-nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    const meta = PAGE_META[name] || ['', ''];
+    document.getElementById('pageTitle').textContent = meta[0];
+    document.getElementById('pageSub').textContent = meta[1];
+    loadTab(name);
+  }
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  // Close modal on backdrop click / Escape
+  document.addEventListener('click', e => { if (e.target.classList && e.target.classList.contains('modal-backdrop')) e.target.classList.remove('open'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open')); });
+
+  function setCount(name, n) { const el = document.getElementById('navCount-' + name); if (el) el.textContent = n; }
+
+  // ── Overview ─────────────────────────────────────────────
+  async function loadOverview() {
+    const [s, t, g, c, a] = await Promise.all([
+      api('GET', '/servers'), api('GET', '/tools'), api('GET', '/groups'), api('GET', '/clients'), api('GET', '/audit')
+    ]);
+    servers = s || servers; tools = t || tools; groups = g || groups; clients = c || clients; auditLogs = a || auditLogs;
+    document.getElementById('mServers').textContent = servers.length;
+    document.getElementById('mTools').textContent = tools.length;
+    document.getElementById('mToolsEnabled').textContent = tools.filter(x => x.enabled).length;
+    document.getElementById('mGroups').textContent = groups.length;
+    document.getElementById('mClients').textContent = clients.length;
+    setCount('servers', servers.length); setCount('tools', tools.length); setCount('groups', groups.length); setCount('clients', clients.length);
+    const tbody = document.getElementById('overviewAuditBody');
+    const recent = auditLogs.slice().reverse().slice(0, 8);
+    if (!recent.length) { tbody.innerHTML = emptyRow(5, 'No activity yet'); return; }
+    tbody.innerHTML = recent.map(x => `
+      <tr>
+        <td style="white-space:nowrap;font-size:12px">${new Date(x.timestamp).toLocaleString()}</td>
+        <td><code>${esc(x.method || '')}</code></td>
+        <td>${esc(x.clientName || '-')}</td>
+        <td>${esc(x.toolName || '-')}</td>
+        <td>${x.success ? '<span class="chip green">OK</span>' : '<span class="chip red">Error</span>'}</td>
+      </tr>`).join('');
+  }
+
+  function emptyRow(cols, title, sub) {
+    return `<tr><td colspan="${cols}" class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>
+      <div class="empty-title">${esc(title)}</div>${sub ? `<div>${esc(sub)}</div>` : ''}</td></tr>`;
+  }
+
+  function switchTabByName(name) {
+    const btn = document.querySelector(`.side-nav button[data-tab="${name}"]`);
+    switchTab(name, btn);
+  }
+
+  // ── Servers ──
+  async function loadServers() {
+    const data = await api('GET', '/servers');
+    servers = data || [];
+    renderServers();
+  }
+
+  function renderServers() {
+    const tbody = document.getElementById('serverTableBody');
+    setCount('servers', servers.length);
+    if (!servers.length) { tbody.innerHTML = emptyRow(7, 'No servers registered', 'Add an upstream MCP server to get started.'); return; }
+    tbody.innerHTML = servers.map(s => `
+      <tr>
+        <td><strong>${esc(s.name)}</strong></td>
+        <td><code>${esc(s.url || s.stdioCommand || '')}</code></td>
+        <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
+        <td>${s.hasAuth ? '<span class="chip green">Auth</span>' : '<span class="chip gray plain">None</span>'}</td>
+        <td><span id="health-${s.id}" class="chip gray plain">—</span>
+          <button class="btn ghost sm" title="Check health" onclick="checkHealth('${s.id}')" style="padding:3px 8px;margin-left:4px">Ping</button>
+        </td>
+        <td>
+          <label class="toggle-switch" title="${s.enabled ? 'Disable' : 'Enable'} server">
+            <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleServer('${s.id}', this.checked)" />
+            <span class="toggle-slider"></span>
+          </label>
+        </td>
+        <td><div class="row-actions">
+          <button class="icon-btn" title="Edit server" onclick="openEditServer('${s.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="icon-btn danger" title="Delete" onclick="deleteServer('${s.id}', '${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </div></td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddServer() {
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_url').value = '';
+    document.getElementById('s_token').value = '';
+    document.getElementById('s_command').value = '';
+    document.getElementById('s_args').value = '';
+    document.getElementById('s_workdir').value = '';
+    document.getElementById('s_headers').value = '';
+    document.getElementById('s_oauth_enabled').checked = false;
+    document.getElementById('s_oauth_url').value = '';
+    document.getElementById('s_oauth_id').value = '';
+    document.getElementById('s_oauth_secret').value = '';
+    document.getElementById('s_oauth_scopes').value = '';
+    openModal('addServerModal');
+  }
+
+  function parseHeaders(text) {
+    const headers = {};
+    (text || '').split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+      const idx = line.indexOf(':');
+      if (idx > 0) headers[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+    });
+    return headers;
+  }
+
+  function buildOAuth(prefix, existing) {
+    const enabled = document.getElementById(prefix + '_enabled').checked;
+    if (!enabled) return null;
+    const secret = document.getElementById(prefix + '_secret').value.trim();
+    return {
+      enabled: true,
+      tokenUrl: document.getElementById(prefix + '_url').value.trim(),
+      clientId: document.getElementById(prefix + '_id').value.trim(),
+      clientSecret: secret || (existing && existing.clientSecret) || '',
+      scopes: document.getElementById(prefix + '_scopes').value.split(/\s+/).map(s => s.trim()).filter(Boolean)
+    };
+  }
+
+  function updateServerForm() {
+    const t = document.getElementById('s_transport').value;
+    document.getElementById('s_httpFields').style.display = t !== 'Stdio' ? '' : 'none';
+    document.getElementById('s_stdioFields').style.display = t === 'Stdio' ? '' : 'none';
+  }
+
+  async function addServer() {
+    const transport = document.getElementById('s_transport').value;
+    const headers = parseHeaders(document.getElementById('s_headers').value);
+    const body = {
+      name: document.getElementById('s_name').value.trim(),
+      transportType: transport,
+      url: transport !== 'Stdio' ? document.getElementById('s_url').value.trim() : null,
+      bearerToken: transport !== 'Stdio' ? document.getElementById('s_token').value.trim() || null : null,
+      stdioCommand: transport === 'Stdio' ? document.getElementById('s_command').value.trim() : null,
+      stdioArgs: transport === 'Stdio' ? document.getElementById('s_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
+      stdioWorkingDirectory: transport === 'Stdio' ? (document.getElementById('s_workdir').value.trim() || null) : null,
+      customHeaders: Object.keys(headers).length ? headers : null,
+      oAuth: buildOAuth('s_oauth', null)
+    };
+    if (!body.name) { toast('Name is required', 'danger'); return; }
+    const result = await api('POST', '/servers', body);
+    if (result) { closeModal('addServerModal'); await loadServers(); toast('Server added', body.name + ' is now registered.', 'success'); }
+  }
+
+  // ── Server Health Check ───────────────────────────────────
+  async function checkHealth(id) {
+    const el = document.getElementById('health-' + id);
+    if (el) el.outerHTML = `<span id="health-${id}" class="chip gray plain"><span class="spinner" style="width:12px;height:12px"></span></span>`;
+    const r = await api('GET', '/servers/' + id + '/health');
+    const span = document.getElementById('health-' + id);
+    if (!span) return;
+    if (!r) { span.className = 'chip gray plain'; span.textContent = '—'; return; }
+    if (r.status === 'healthy') {
+      span.className = 'chip green';
+      span.textContent = `${r.latencyMs}ms · ${r.toolCount} tools`;
+    } else {
+      span.className = 'chip red';
+      span.textContent = 'Unhealthy';
+      span.title = r.error || '';
+    }
+  }
+
+  async function deleteServer(id, name) {
+    if (!(await confirmDialog({ title: 'Delete server', message: `“${name}” and its tools will be removed.`, okText: 'Delete' }))) return;
+    await api('DELETE', '/servers/' + id);
+    await loadServers();
+    toast('Server deleted', name + ' was removed.', 'success');
+  }
+
+  // ── Catalog ──
+  let catalog = [];
+  const VERIFIED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>';
+
+  async function loadCatalog() {
+    const grid = document.getElementById('catalogGrid');
+    grid.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    try {
+      const r = await fetch(BASE + '/catalog.json', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      catalog = data.servers || [];
+      renderCatalog();
+    } catch (e) {
+      catalog = [];
+      grid.innerHTML = `<div class="empty">Catalog could not be loaded (${esc(e.message)}).</div>`;
+    }
+  }
+
+  function catalogCommand(c) {
+    return c.transport === 'Stdio'
+      ? [c.command].concat(c.args || []).join(' ')
+      : (c.url || '');
+  }
+
+  function renderCatalog() {
+    const grid = document.getElementById('catalogGrid');
+    const q = (document.getElementById('catalogSearch').value || '').trim().toLowerCase();
+    const installed = new Set(servers.map(s => (s.name || '').toLowerCase()));
+    const list = catalog.filter(c =>
+      !q || (c.title + ' ' + c.name + ' ' + (c.description || '') + ' ' + (c.category || '')).toLowerCase().includes(q));
+    if (!list.length) { grid.innerHTML = '<div class="empty">No catalog entries match your search.</div>'; return; }
+    grid.innerHTML = list.map(c => {
+      const i = catalog.indexOf(c);
+      const isInstalled = installed.has((c.name || '').toLowerCase());
+      const logo = (c.title || c.name || '?').trim().charAt(0).toUpperCase();
+      return `
+      <div class="cat-card">
+        <div class="cat-head">
+          <div class="cat-logo">${esc(logo)}</div>
+          <div>
+            <div class="cat-title">${esc(c.title || c.name)}${c.verified ? `<span class="verified-badge" title="Verified">${VERIFIED_ICON}</span>` : ''}</div>
+            <div class="cat-cat">${esc(c.category || 'general')}</div>
+          </div>
+        </div>
+        <div class="cat-desc">${esc(c.description || '')}</div>
+        <div class="cat-meta">
+          <span class="chip blue plain">${esc(c.transport)}</span>
+          ${c.requiresNode ? '<span class="chip gray plain">needs Node/npx</span>' : ''}
+        </div>
+        <div class="cmd-preview">${esc(catalogCommand(c))}</div>
+        <div class="cat-foot">
+          ${c.homepage ? `<a class="btn ghost" href="${esc(c.homepage)}" target="_blank" rel="noopener">Docs</a>` : ''}
+          <span class="spacer"></span>
+          ${isInstalled
+            ? '<button class="btn ghost" disabled>Installed</button>'
+            : `<button class="btn" onclick="installFromCatalog(${i})">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+                 Install
+               </button>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function installFromCatalog(i) {
+    const c = catalog[i];
+    if (!c) return;
+    const cmd = catalogCommand(c);
+    const isStdio = c.transport === 'Stdio';
+    const message = isStdio
+      ? `This will register “${c.title}” and run a local process on the gateway host:\n\n${cmd}\n\nOnly install commands you trust. Requires Node/npx on the host.`
+      : `This will register “${c.title}” and connect to:\n\n${cmd}`;
+    if (!(await confirmDialog({ title: 'Install ' + (c.title || c.name), message, okText: 'Install', danger: isStdio }))) return;
+    const body = {
+      name: c.name,
+      transportType: c.transport,
+      url: !isStdio ? c.url : null,
+      bearerToken: null,
+      stdioCommand: isStdio ? c.command : null,
+      stdioArgs: isStdio ? (c.args || []) : []
+    };
+    const result = await api('POST', '/servers', body);
+    if (result) {
+      toast('Installed', (c.title || c.name) + ' is now registered.', 'success');
+      await loadServers();
+      renderCatalog();
+    }
+  }
+
+  async function refreshAll() {
+    await api('POST', '/tools/refresh');
+    toast('Tools refreshed', 'Upstream tool cache reloaded.', 'success');
+    await loadTools();
+  }
+
+  // ── Tools ──
+  async function loadTools() {
+    const data = await api('GET', '/tools');
+    tools = data || [];
+    renderTools();
+  }
+
+  function renderTools() {
+    const q = (document.getElementById('toolSearch')?.value || '').toLowerCase();
+    const filtered = q ? tools.filter(t => t.fullName.toLowerCase().includes(q)) : tools;
+    const tbody = document.getElementById('toolTableBody');
+    setCount('tools', tools.length);
+    if (!filtered.length) { tbody.innerHTML = emptyRow(3, q ? 'No matching tools' : 'No tools found', q ? '' : 'Register a server and refresh tools.'); return; }
+    tbody.innerHTML = filtered.map(t => `
+      <tr>
+        <td><code>${esc(t.fullName)}</code></td>
+        <td>${esc(t.serverName)}</td>
+        <td style="text-align:right">
+          <button class="btn ghost sm" style="padding:3px 10px;margin-right:8px" onclick="openToolTest('${esc(t.fullName)}')">Test</button>
+          <label class="toggle-switch" style="vertical-align:middle">
+            <input type="checkbox" ${t.enabled ? 'checked' : ''} onchange="toggleTool('${esc(t.fullName)}', this.checked)" />
+            <span class="toggle-slider"></span>
+          </label>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Tool Inspector ────────────────────────────────────────
+  function openToolTest(fullName) {
+    document.getElementById('tt_name').textContent = fullName;
+    document.getElementById('tt_args').value = '{}';
+    document.getElementById('tt_result').textContent = '—';
+    document.getElementById('tt_status').textContent = '';
+    openModal('toolTestModal');
+  }
+
+  async function runToolTest() {
+    const fullName = document.getElementById('tt_name').textContent;
+    let args;
+    try { args = JSON.parse(document.getElementById('tt_args').value || '{}'); }
+    catch (e) { toast('Invalid JSON', e.message, 'danger'); return; }
+    document.getElementById('tt_status').textContent = 'Running…';
+    document.getElementById('tt_result').textContent = '…';
+    const r = await api('POST', '/tools/call', { fullName, arguments: args });
+    if (!r) { document.getElementById('tt_status').textContent = 'Failed'; return; }
+    document.getElementById('tt_status').textContent = (r.success ? '✓ ' : '✗ ') + (r.durationMs != null ? r.durationMs + 'ms' : '');
+    const out = r.error ? { error: r.error } : (r.content ?? r);
+    document.getElementById('tt_result').textContent = JSON.stringify(out, null, 2);
+  }
+
+  async function toggleTool(fullName, enabled) {
+    const parts = fullName.split('__');
+    if (parts.length < 2) return;
+    const serverId = servers.find(s => s.name === parts[0])?.id;
+    if (!serverId) { toast('Server not found for tool', 'danger'); return; }
+    await api('PATCH', `/servers/${serverId}/tools/${encodeURIComponent(fullName)}/toggle?enabled=${enabled}`);
+    const t = tools.find(x => x.fullName === fullName);
+    if (t) t.enabled = enabled;
+  }
+
+  // ── Groups ──
+  async function loadGroups() {
+    const data = await api('GET', '/groups');
+    groups = data || [];
+    renderGroups();
+  }
+
+  function renderGroups() {
+    const tbody = document.getElementById('groupTableBody');
+    setCount('groups', groups.length);
+    if (!groups.length) { tbody.innerHTML = emptyRow(4, 'No groups defined', 'Create a group to bundle related tools.'); return; }
+    tbody.innerHTML = groups.map(g => `
+      <tr>
+        <td><strong>${esc(g.name)}</strong></td>
+        <td>${esc(g.description || '')}</td>
+        <td><span class="chip blue plain">${(g.toolNames || []).length} tools</span></td>
+        <td><div class="row-actions">
+          <button class="btn ghost sm" onclick="openGroupTools('${g.id}', '${esc(g.name)}')">Manage Tools</button>
+          <button class="icon-btn danger" title="Delete" onclick="deleteGroup('${g.id}', '${esc(g.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </div></td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddGroup() {
+    document.getElementById('g_name').value = '';
+    document.getElementById('g_desc').value = '';
+    openModal('addGroupModal');
+  }
+
+  async function addGroup() {
+    const body = {
+      name: document.getElementById('g_name').value.trim(),
+      description: document.getElementById('g_desc').value.trim() || null
+    };
+    if (!body.name) { toast('Name is required', 'danger'); return; }
+    const result = await api('POST', '/groups', body);
+    if (result) { closeModal('addGroupModal'); await loadGroups(); toast('Group created', body.name + ' is ready.', 'success'); }
+  }
+
+  async function deleteGroup(id, name) {
+    if (!(await confirmDialog({ title: 'Delete group', message: `“${name}” will be removed.`, okText: 'Delete' }))) return;
+    await api('DELETE', '/groups/' + id);
+    await loadGroups();
+    toast('Group deleted', name + ' was removed.', 'success');
+  }
+
+  // ── Clients ──
+  async function loadClients() {
+    const data = await api('GET', '/clients');
+    clients = data || [];
+    renderClients();
+  }
+
+  function renderClients() {
+    const tbody = document.getElementById('clientTableBody');
+    setCount('clients', clients.length);
+    if (!clients.length) { tbody.innerHTML = emptyRow(5, 'No clients', 'Clients require enterprise mode.'); return; }
+    tbody.innerHTML = clients.map(c => `
+      <tr>
+        <td><strong>${esc(c.name)}</strong></td>
+        <td>
+          <label class="toggle-switch" title="${c.enabled ? 'Disable' : 'Enable'} client">
+            <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleClient('${c.id}', this.checked)" />
+            <span class="toggle-slider"></span>
+          </label>
+        </td>
+        <td>${c.allowedServers === 0 ? '<span class="chip gray plain">All</span>' : '<span class="chip blue plain">' + c.allowedServers + ' servers</span>'}</td>
+        <td>${c.allowedGroups === 0 ? '<span class="chip gray plain">All</span>' : '<span class="chip blue plain">' + c.allowedGroups + ' groups</span>'}</td>
+        <td><div class="row-actions">
+          <button class="btn ghost sm" onclick="openClientPerms('${c.id}')">Permissions</button>
+          <button class="icon-btn danger" title="Delete" onclick="deleteClient('${c.id}', '${esc(c.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </div></td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddClient() { document.getElementById('c_name').value = ''; openModal('addClientModal'); }
+
+  async function addClient() {
+    const body = { name: document.getElementById('c_name').value.trim() };
+    if (!body.name) { toast('Name is required', 'danger'); return; }
+    const result = await api('POST', '/clients', body);
+    if (result) {
+      closeModal('addClientModal');
+      await loadClients();
+      document.getElementById('tokenDisplay').textContent = result.bearerToken;
+      openModal('tokenModal');
+    }
+  }
+
+  async function deleteClient(id, name) {
+    if (!(await confirmDialog({ title: 'Delete client', message: `“${name}” and its token will be revoked.`, okText: 'Delete' }))) return;
+    await api('DELETE', '/clients/' + id);
+    await loadClients();
+    toast('Client deleted', name + ' was removed.', 'success');
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(document.getElementById('tokenDisplay').textContent);
+    toast('Copied', 'Token copied to clipboard.', 'success');
+  }
+
+  // ── Server Edit + Toggle ──────────────────────────────────
+  async function toggleServer(id, enabled) {
+    const res = await api('PATCH', `/servers/${id}/toggle?enabled=${enabled}`);
+    if (res !== null || enabled !== undefined) {
+      const s = servers.find(x => x.id === id);
+      if (s) s.enabled = enabled;
+      toast(enabled ? 'Server enabled' : 'Server disabled', '', 'success');
+    }
+  }
+
+  let _editServerId = null;
+  async function openEditServer(id) {
+    const s = await api('GET', '/servers/' + id);
+    if (!s) return;
+    _editServerId = id;
+    document.getElementById('es_name').value = s.name || '';
+    document.getElementById('es_transport').value = s.transportType || 'StreamableHttp';
+    document.getElementById('es_url').value = s.url || '';
+    document.getElementById('es_token').value = '';
+    document.getElementById('es_command').value = s.stdioCommand || '';
+    document.getElementById('es_args').value = (s.stdioArgs || []).join('\n');
+    document.getElementById('es_workdir').value = s.stdioWorkingDirectory || '';
+    const headers = s.customHeaders || {};
+    document.getElementById('es_headers').value = Object.keys(headers).map(k => k + ': ' + headers[k]).join('\n');
+    const o = s.oAuth || s.oauth;
+    document.getElementById('es_oauth_enabled').checked = !!(o && o.enabled);
+    document.getElementById('es_oauth_url').value = o ? (o.tokenUrl || '') : '';
+    document.getElementById('es_oauth_id').value = o ? (o.clientId || '') : '';
+    document.getElementById('es_oauth_secret').value = '';
+    document.getElementById('es_oauth_scopes').value = o ? (o.scopes || []).join(' ') : '';
+    updateEditServerForm();
+    openModal('editServerModal');
+  }
+
+  function updateEditServerForm() {
+    const t = document.getElementById('es_transport').value;
+    document.getElementById('es_httpFields').style.display = t !== 'Stdio' ? '' : 'none';
+    document.getElementById('es_stdioFields').style.display = t === 'Stdio' ? '' : 'none';
+  }
+
+  async function saveEditServer() {
+    const transport = document.getElementById('es_transport').value;
+    const headers = parseHeaders(document.getElementById('es_headers').value);
+    const body = {
+      name: document.getElementById('es_name').value.trim(),
+      transportType: transport,
+      url: transport !== 'Stdio' ? document.getElementById('es_url').value.trim() : null,
+      bearerToken: transport !== 'Stdio' ? (document.getElementById('es_token').value.trim() || null) : null,
+      stdioCommand: transport === 'Stdio' ? document.getElementById('es_command').value.trim() : null,
+      stdioArgs: transport === 'Stdio' ? document.getElementById('es_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
+      stdioWorkingDirectory: transport === 'Stdio' ? (document.getElementById('es_workdir').value.trim() || null) : null,
+      customHeaders: Object.keys(headers).length ? headers : null,
+      oAuth: buildOAuth('es_oauth', null)
+    };
+    if (!body.name) { toast('Name is required', '', 'danger'); return; }
+    const result = await api('PUT', '/servers/' + _editServerId, body);
+    if (result) {
+      closeModal('editServerModal');
+      await loadServers();
+      toast('Server updated', body.name + ' was updated.', 'success');
+    }
+  }
+
+  // ── Group Tools Management ────────────────────────────────
+  let _groupToolsId = null;
+  async function openGroupTools(groupId, groupName) {
+    _groupToolsId = groupId;
+    document.getElementById('gtModal_title').textContent = 'Tools in "' + groupName + '"';
+    document.getElementById('gtModal_body').innerHTML = '<div style="padding:24px;text-align:center"><span class="spinner"></span></div>';
+    openModal('groupToolsModal');
+    const [allTools, allGroups] = await Promise.all([api('GET', '/tools'), api('GET', '/groups')]);
+    tools = allTools || tools;
+    groups = allGroups || groups;
+    const groupData = groups.find(g => g.id === groupId);
+    const groupToolNames = new Set(groupData?.toolNames || []);
+    if (!tools.length) {
+      document.getElementById('gtModal_body').innerHTML = '<div class="empty" style="padding:24px">No tools found. Register a server and refresh tools first.</div>';
+      return;
+    }
+    const html = tools.map(t => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" ${groupToolNames.has(t.fullName) ? 'checked' : ''} onchange="toggleGroupTool('${groupId}', '${esc(t.fullName)}', this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
+        <code style="flex:1">${esc(t.fullName)}</code>
+        <span style="color:var(--muted);font-size:12px">${esc(t.serverName)}</span>
+      </label>
+    `).join('');
+    document.getElementById('gtModal_body').innerHTML = html;
+  }
+
+  async function toggleGroupTool(groupId, toolName, add) {
+    if (add) {
+      await api('POST', '/groups/' + groupId + '/tools', { toolName });
+    } else {
+      await api('DELETE', '/groups/' + groupId + '/tools/' + encodeURIComponent(toolName));
+    }
+    const g = groups.find(x => x.id === groupId);
+    if (g) {
+      if (add && !g.toolNames.includes(toolName)) g.toolNames.push(toolName);
+      if (!add) g.toolNames = g.toolNames.filter(x => x !== toolName);
+    }
+    renderGroups();
+  }
+
+  // ── Client Permissions Management ────────────────────────
+  let _clientPermsId = null;
+
+  async function toggleClient(id, enabled) {
+    const c = await api('GET', '/clients/' + id);
+    if (!c) return;
+    await api('PUT', '/clients/' + id, {
+      enabled,
+      allowedServerIds: c.allowedServerIds,
+      allowedGroupIds: c.allowedGroupIds,
+      rateLimitPerMinute: c.rateLimitPerMinute || 0
+    });
+    const cl = clients.find(x => x.id === id);
+    if (cl) cl.enabled = enabled;
+    toast(enabled ? 'Client enabled' : 'Client disabled', '', 'success');
+  }
+
+  async function regenerateToken() {
+    if (!_clientPermsId) return;
+    if (!(await confirmDialog({ title: 'Regenerate token', message: 'The old token will stop working immediately. Continue?', okText: 'Regenerate', danger: true }))) return;
+    const r = await api('POST', '/clients/' + _clientPermsId + '/regenerate');
+    if (r && r.bearerToken) {
+      document.getElementById('tokenDisplay').textContent = r.bearerToken;
+      openModal('tokenModal');
+    }
+  }
+
+  async function openClientPerms(id) {
+    _clientPermsId = id;
+    document.getElementById('cpModal_clientName').textContent = '…';
+    document.getElementById('cpModal_body').innerHTML = '<div style="padding:24px;text-align:center"><span class="spinner"></span></div>';
+    openModal('clientPermsModal');
+    const [c, allServers, allGroups] = await Promise.all([
+      api('GET', '/clients/' + id),
+      api('GET', '/servers'),
+      api('GET', '/groups')
+    ]);
+    if (!c) { closeModal('clientPermsModal'); return; }
+    servers = allServers || servers;
+    groups = allGroups || groups;
+    document.getElementById('cpModal_clientName').textContent = c.name;
+    document.getElementById('cpModal_enabled').checked = c.enabled;
+    document.getElementById('cpModal_rate').value = c.rateLimitPerMinute || 0;
+    const allowedServerIds = new Set(c.allowedServerIds || []);
+    const allowedGroupIds = new Set(c.allowedGroupIds || []);
+    const serversHtml = servers.length
+      ? servers.map(s => `
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+          <input type="checkbox" class="cp_server" value="${s.id}" ${allowedServerIds.has(s.id) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
+          <strong style="flex:1">${esc(s.name)}</strong>
+          <span class="chip blue plain">${esc(s.transportType)}</span>
+        </label>`).join('')
+      : '<div style="padding:12px;color:var(--muted)">No servers registered.</div>';
+    const groupsHtml = groups.length
+      ? groups.map(g => `
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+          <input type="checkbox" class="cp_group" value="${g.id}" ${allowedGroupIds.has(g.id) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
+          <strong style="flex:1">${esc(g.name)}</strong>
+          <span style="color:var(--muted);font-size:12px">${(g.toolNames||[]).length} tools</span>
+        </label>`).join('')
+      : '<div style="padding:12px;color:var(--muted)">No groups defined.</div>';
+    document.getElementById('cpModal_body').innerHTML = `
+      <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Leave all unchecked to allow access to everything (no restriction).</p>
+      <div style="margin-bottom:18px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text-dim)">Servers</div>
+        <div style="border:1px solid var(--border);border-radius:8px;padding:4px 12px">${serversHtml}</div>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text-dim)">Tool Groups</div>
+        <div style="border:1px solid var(--border);border-radius:8px;padding:4px 12px">${groupsHtml}</div>
+      </div>`;
+  }
+
+  async function saveClientPerms() {
+    const checkedServers = [...document.querySelectorAll('.cp_server:checked')].map(x => x.value);
+    const checkedGroups = [...document.querySelectorAll('.cp_group:checked')].map(x => x.value);
+    const enabled = document.getElementById('cpModal_enabled').checked;
+    const rateLimitPerMinute = parseInt(document.getElementById('cpModal_rate').value, 10) || 0;
+    const result = await api('PUT', '/clients/' + _clientPermsId, {
+      enabled,
+      allowedServerIds: checkedServers,
+      allowedGroupIds: checkedGroups,
+      rateLimitPerMinute
+    });
+    if (result) {
+      closeModal('clientPermsModal');
+      await loadClients();
+      toast('Permissions saved', 'Client updated.', 'success');
+    }
+  }
+
+  // ── Audit ──
+  async function loadAudit() {
+    const data = await api('GET', '/audit');
+    auditLogs = data || [];
+    renderAudit();
+  }
+
+  function renderAudit() {
+    const tbody = document.getElementById('auditTableBody');
+    const q = (document.getElementById('auditFilter')?.value || '').toLowerCase();
+    const status = document.getElementById('auditStatus')?.value || '';
+    let list = auditLogs.slice().reverse();
+    if (q) list = list.filter(a => (`${a.clientName||''} ${a.serverName||''} ${a.toolName||''} ${a.method||''}`).toLowerCase().includes(q));
+    if (status === 'ok') list = list.filter(a => a.success);
+    if (status === 'err') list = list.filter(a => !a.success);
+    if (!list.length) { tbody.innerHTML = emptyRow(7, 'No audit entries', 'Requests will appear here as they happen.'); return; }
+    tbody.innerHTML = list.map(a => `
+      <tr>
+        <td style="white-space:nowrap;font-size:12px">${new Date(a.timestamp).toLocaleString()}</td>
+        <td><code>${esc(a.method || '')}</code></td>
+        <td>${esc(a.clientName || '-')}</td>
+        <td>${esc(a.serverName || '-')}</td>
+        <td>${esc(a.toolName || '-')}</td>
+        <td>${a.durationMs != null ? a.durationMs + 'ms' : '-'}</td>
+        <td>${a.success ? '<span class="chip green">OK</span>' : '<span class="chip red">Error</span>'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function exportAuditCsv() {
+    if (!auditLogs.length) { toast('Nothing to export', '', 'warning'); return; }
+    const rows = [['Time', 'Method', 'Client', 'Server', 'Tool', 'DurationMs', 'Success', 'Error']];
+    auditLogs.slice().reverse().forEach(a => rows.push([
+      new Date(a.timestamp).toISOString(), a.method || '', a.clientName || '', a.serverName || '',
+      a.toolName || '', a.durationMs ?? '', a.success ? 'true' : 'false', a.errorMessage || ''
+    ]));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    downloadFile('audit-log-' + new Date().toISOString().slice(0, 10) + '.csv', csv, 'text/csv');
+    toast('Exported', 'Audit log downloaded as CSV.', 'success');
+  }
+
+  function downloadFile(filename, content, type) {
+    const blob = new Blob([content], { type: type || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Settings ──────────────────────────────────────────────
+  async function loadSettings() {
+    const [s, t, c] = await Promise.all([api('GET', '/servers'), api('GET', '/tools'), api('GET', '/clients')]);
+    servers = s || servers; tools = t || tools; clients = c || clients;
+    document.getElementById('setMode').textContent = gatewayMode || 'Dev';
+    document.getElementById('setServers').textContent = servers.length;
+    document.getElementById('setTools').textContent = tools.length;
+    document.getElementById('setClients').textContent = clients.length;
+  }
+
+  async function exportConfig() {
+    const cfg = await api('GET', '/export');
+    if (!cfg) return;
+    downloadFile('mcpnet-config-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(cfg, null, 2), 'application/json');
+    toast('Exported', 'Gateway config downloaded.', 'success');
+  }
+
+  async function importConfig(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch (e) { toast('Invalid file', e.message, 'danger'); return; }
+    if (!(await confirmDialog({ title: 'Import config', message: 'New servers, groups and clients will be added (existing names are skipped). Continue?', okText: 'Import', danger: false }))) return;
+    const r = await api('POST', '/import', { servers: data.servers || [], groups: data.groups || [], clients: data.clients || [] });
+    if (r) {
+      toast('Imported', `${r.serversAdded} servers, ${r.groupsAdded} groups, ${r.clientsAdded} clients added.`, 'success');
+      await loadSettings();
+    }
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Initial load
+  loadInfo();
+  loadOverview();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,814 @@
+{
+  "version": 2,
+  "updatedAt": "2026-06-17",
+  "servers": [
+
+
+    {
+      "name": "deepwiki",
+      "title": "DeepWiki",
+      "description": "Ask natural-language questions about any public GitHub repository.",
+      "category": "Knowledge",
+      "transport": "StreamableHttp",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "homepage": "https://deepwiki.com",
+      "verified": true
+    },
+    {
+      "name": "huggingface",
+      "title": "Hugging Face",
+      "description": "Search models, datasets and Spaces on the Hugging Face Hub.",
+      "category": "AI / ML",
+      "transport": "StreamableHttp",
+      "url": "https://huggingface.co/mcp",
+      "homepage": "https://huggingface.co",
+      "verified": true
+    },
+
+
+    {
+      "name": "everything",
+      "title": "Everything (Reference)",
+      "description": "Official reference server: echo, add, ping and other test tools.",
+      "category": "Testing",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "filesystem",
+      "title": "Filesystem",
+      "description": "Read and write files within an allowed directory.",
+      "category": "Local",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true,
+      "requiresDirectory": true
+    },
+    {
+      "name": "memory",
+      "title": "Memory",
+      "description": "Knowledge-graph based persistent memory for agents.",
+      "category": "Local",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "sequential-thinking",
+      "title": "Sequential Thinking",
+      "description": "Step-by-step reasoning tool for breaking down complex problems.",
+      "category": "Reasoning",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "fetch",
+      "title": "Fetch",
+      "description": "Fetch any URL and convert web content to Markdown for efficient LLM use.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "time",
+      "title": "Time",
+      "description": "Get current time and convert between timezones.",
+      "category": "Utilities",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-time"],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "github",
+      "title": "GitHub",
+      "description": "Manage repos, issues, PRs, and files via GitHub API. Requires GITHUB_PERSONAL_ACCESS_TOKEN env var.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/github",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+    },
+    {
+      "name": "gitlab",
+      "title": "GitLab",
+      "description": "GitLab API integration for project management, issues, and MRs. Requires GITLAB_PERSONAL_ACCESS_TOKEN.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gitlab"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gitlab",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GITLAB_PERSONAL_ACCESS_TOKEN"]
+    },
+    {
+      "name": "git",
+      "title": "Git",
+      "description": "Read, search, and manipulate local Git repositories.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "."],
+      "homepage": "https://github.com/modelcontextprotocol/servers",
+      "verified": true,
+      "requiresPython": true,
+      "requiresDirectory": true
+    },
+    {
+      "name": "playwright",
+      "title": "Playwright (Microsoft)",
+      "description": "Browser automation via Playwright: navigate, click, fill forms, take screenshots.",
+      "category": "Browser",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "homepage": "https://github.com/microsoft/playwright-mcp",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "puppeteer",
+      "title": "Puppeteer",
+      "description": "Browser automation and web scraping with Puppeteer.",
+      "category": "Browser",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/puppeteer",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "firecrawl",
+      "title": "Firecrawl",
+      "description": "Crawl and scrape websites for structured data. Requires FIRECRAWL_API_KEY.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "homepage": "https://github.com/mendableai/firecrawl-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["FIRECRAWL_API_KEY"]
+    },
+    {
+      "name": "brave-search",
+      "title": "Brave Search",
+      "description": "Web and local search using the Brave Search API. Requires BRAVE_API_KEY.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "homepage": "https://github.com/brave/brave-search-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["BRAVE_API_KEY"]
+    },
+
+
+    {
+      "name": "sqlite",
+      "title": "SQLite",
+      "description": "Query and interact with SQLite databases via natural language.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sqlite", "--db-path", "database.db"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "postgres",
+      "title": "PostgreSQL",
+      "description": "Read-only schema inspection and SQL queries against PostgreSQL databases.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "redis",
+      "title": "Redis",
+      "description": "Interact with Redis key-value stores: get, set, delete, list keys.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-redis"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/redis",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["REDIS_URL"]
+    },
+
+
+    {
+      "name": "aws-kb-retrieval",
+      "title": "AWS Knowledge Base",
+      "description": "Retrieve information from AWS Knowledge Base via Bedrock Agent Runtime. Requires AWS credentials.",
+      "category": "Cloud",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-aws-kb-retrieval-server"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/aws-kb-retrieval-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"]
+    },
+
+
+    {
+      "name": "slack",
+      "title": "Slack",
+      "description": "Channel management and messaging for Slack workspaces. Requires SLACK_BOT_TOKEN.",
+      "category": "Communication",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@zencoderai/slack-mcp-server"],
+      "homepage": "https://github.com/zencoderai/slack-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"]
+    },
+
+
+    {
+      "name": "google-drive",
+      "title": "Google Drive",
+      "description": "Browse, search, and read files stored in Google Drive.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gdrive"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GDRIVE_CREDENTIALS_PATH"]
+    },
+    {
+      "name": "google-maps",
+      "title": "Google Maps",
+      "description": "Location search, geocoding, directions, and place details via Google Maps API.",
+      "category": "Utilities",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-maps"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/google-maps",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GOOGLE_MAPS_API_KEY"]
+    },
+
+
+    {
+      "name": "everart",
+      "title": "EverArt",
+      "description": "Generate AI images using multiple models (SDXL, DALL-E, etc.). Requires EVERART_API_KEY.",
+      "category": "AI / ML",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everart"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/everart",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["EVERART_API_KEY"]
+    },
+    {
+      "name": "openai-tools",
+      "title": "OpenAI Tools",
+      "description": "Image generation (DALL-E) and audio (Whisper/TTS) via OpenAI API. Requires OPENAI_API_KEY.",
+      "category": "AI / ML",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@openai/mcp-server-openai"],
+      "homepage": "https://github.com/openai/openai-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["OPENAI_API_KEY"]
+    },
+
+
+    {
+      "name": "sentry",
+      "title": "Sentry",
+      "description": "Browse and analyze error issues from your Sentry.io projects. Requires SENTRY_AUTH_TOKEN.",
+      "category": "Monitoring",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sentry"],
+      "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sentry",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["SENTRY_AUTH_TOKEN"]
+    },
+
+
+    {
+      "name": "exa",
+      "title": "Exa Search",
+      "description": "AI-powered web search and content retrieval via Exa API. Requires EXA_API_KEY.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "exa-mcp-server"],
+      "homepage": "https://github.com/exa-labs/exa-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["EXA_API_KEY"]
+    },
+    {
+      "name": "perplexity",
+      "title": "Perplexity",
+      "description": "Real-time web search via Perplexity AI. Requires PERPLEXITY_API_KEY.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "server-perplexity-ask"],
+      "homepage": "https://github.com/ppl-ai/modelcontextprotocol",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["PERPLEXITY_API_KEY"]
+    },
+    {
+      "name": "serper",
+      "title": "Serper (Google Search)",
+      "description": "Google Search results via Serper API. Requires SERPER_API_KEY.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "serper-mcp-server"],
+      "homepage": "https://github.com/garymengcom/serper-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["SERPER_API_KEY"]
+    },
+    {
+      "name": "jina",
+      "title": "Jina AI",
+      "description": "Semantic web search, reader, reranker and embeddings via Jina AI APIs.",
+      "category": "Web & Search",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "jina-mcp-tools"],
+      "homepage": "https://github.com/PsychArch/jina-mcp-tools",
+      "verified": true,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "alphavantage",
+      "title": "Alpha Vantage",
+      "description": "Stock prices, market data, technical indicators via Alpha Vantage. Requires ALPHAVANTAGE_API_KEY.",
+      "category": "Finance",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@alphavantage/mcp-server"],
+      "homepage": "https://mcp.alphavantage.co",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["ALPHAVANTAGE_API_KEY"]
+    },
+
+
+    {
+      "name": "mcp-server-git-py",
+      "title": "Git (Python)",
+      "description": "Git operations on local repositories via the Python MCP SDK.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "uvx",
+      "args": ["mcp-server-git"],
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
+      "verified": true,
+      "requiresPython": true
+    },
+    {
+      "name": "mcp-server-time-py",
+      "title": "Time (Python)",
+      "description": "Current time and timezone conversion — Python variant.",
+      "category": "Utilities",
+      "transport": "Stdio",
+      "command": "uvx",
+      "args": ["mcp-server-time"],
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+      "verified": true,
+      "requiresPython": true
+    },
+
+
+    {
+      "name": "context7",
+      "title": "Context7",
+      "description": "Up-to-date library documentation for any npm/PyPI package injected directly into LLM context.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "homepage": "https://github.com/upstash/context7",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "nx-mcp",
+      "title": "Nx",
+      "description": "Query your Nx monorepo: project graph, affected commands, generate code.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "nx-mcp@latest"],
+      "homepage": "https://nx.dev",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "shadcn-ui",
+      "title": "shadcn/ui",
+      "description": "Browse and install shadcn/ui components directly from the CLI.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@shadcn/ui-mcp-server"],
+      "homepage": "https://ui.shadcn.com",
+      "verified": true,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "desktop-commander",
+      "title": "Desktop Commander",
+      "description": "Execute terminal commands and manage processes from your AI assistant.",
+      "category": "Local",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@wonderwhy-er/desktop-commander"],
+      "homepage": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "mcp-shell",
+      "title": "Shell Exec",
+      "description": "Run arbitrary shell commands with allowlist control. Use with caution.",
+      "category": "Local",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-shell"],
+      "homepage": "https://github.com/zhukunpenglinyutong/mcp-shell",
+      "verified": false,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "mcp-outlook",
+      "title": "Outlook / Office 365",
+      "description": "Read emails, create events, and manage calendar entries in Microsoft 365.",
+      "category": "Communication",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@softeria/ms-365-mcp-server"],
+      "homepage": "https://github.com/softeria/ms-365-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["MS_CLIENT_ID", "MS_TENANT_ID"]
+    },
+    {
+      "name": "linear",
+      "title": "Linear",
+      "description": "Manage issues, projects, and teams in Linear. Requires LINEAR_API_KEY.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@linear/mcp-server"],
+      "homepage": "https://linear.app",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["LINEAR_API_KEY"]
+    },
+    {
+      "name": "jira",
+      "title": "Jira",
+      "description": "Create and manage Jira issues, sprints, and projects. Requires JIRA credentials.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-server-jira"],
+      "homepage": "https://github.com/tayler6000/mcp-server-jira",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"]
+    },
+    {
+      "name": "notion",
+      "title": "Notion",
+      "description": "Search, read, and create Notion pages and databases. Requires NOTION_API_KEY.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "homepage": "https://github.com/makenotion/notion-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["NOTION_API_KEY"]
+    },
+    {
+      "name": "github-official",
+      "title": "GitHub (Official)",
+      "description": "Official GitHub MCP server with full API coverage including Copilot integration.",
+      "category": "Development",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@github/mcp-server"],
+      "homepage": "https://github.com/github/github-mcp-server",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+    },
+
+
+    {
+      "name": "minimax",
+      "title": "MiniMax",
+      "description": "Text-to-speech, image and video generation via MiniMax API. Requires MINIMAX_API_KEY.",
+      "category": "AI / ML",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@minimax-ai/mcp-server"],
+      "homepage": "https://github.com/MiniMax-AI/MiniMax-MCP",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["MINIMAX_API_KEY"]
+    },
+    {
+      "name": "replicate",
+      "title": "Replicate",
+      "description": "Run thousands of AI models (images, video, audio) via Replicate API.",
+      "category": "AI / ML",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "replicate-mcp"],
+      "homepage": "https://replicate.com",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["REPLICATE_API_TOKEN"]
+    },
+
+
+    {
+      "name": "datadog",
+      "title": "Datadog",
+      "description": "Query metrics, logs, traces, and monitors in Datadog. Requires DATADOG_API_KEY.",
+      "category": "Monitoring",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@datadog/mcp-server"],
+      "homepage": "https://docs.datadoghq.com/integrations/mcp",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["DATADOG_API_KEY", "DATADOG_APP_KEY"]
+    },
+    {
+      "name": "grafana",
+      "title": "Grafana",
+      "description": "Explore dashboards, alerts, and Prometheus metrics in Grafana.",
+      "category": "Monitoring",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@grafana/mcp-grafana"],
+      "homepage": "https://github.com/grafana/mcp-grafana",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["GRAFANA_URL", "GRAFANA_API_KEY"]
+    },
+
+
+    {
+      "name": "mermaid",
+      "title": "Mermaid Diagrams",
+      "description": "Generate Mermaid diagrams (flowchart, sequence, ER, Gantt) from text descriptions.",
+      "category": "Utilities",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "mermaid-mcp-server"],
+      "homepage": "https://github.com/peng-shawn/mermaid-mcp-server",
+      "verified": true,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "stripe",
+      "title": "Stripe",
+      "description": "Manage customers, payments, subscriptions, and invoices via Stripe API.",
+      "category": "Finance",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@stripe/mcp-server"],
+      "homepage": "https://github.com/stripe/agent-toolkit",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["STRIPE_SECRET_KEY"]
+    },
+
+
+    {
+      "name": "docker",
+      "title": "Docker",
+      "description": "Manage Docker containers, images, volumes, and networks.",
+      "category": "Cloud",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-server-docker"],
+      "homepage": "https://github.com/ckreiling/mcp-server-docker",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "kubernetes",
+      "title": "Kubernetes",
+      "description": "Manage pods, deployments, services, and config maps in a K8s cluster.",
+      "category": "Cloud",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@flux159/mcp-server-kubernetes"],
+      "homepage": "https://github.com/Flux159/mcp-server-kubernetes",
+      "verified": true,
+      "requiresNode": true
+    },
+
+
+    {
+      "name": "postman",
+      "title": "Postman",
+      "description": "Access your Postman collections, environments, and run API tests. Requires POSTMAN_API_KEY.",
+      "category": "Testing",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@postman/mcp-server"],
+      "homepage": "https://www.postman.com",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["POSTMAN_API_KEY"]
+    },
+
+
+    {
+      "name": "task-master",
+      "title": "Task Master AI",
+      "description": "AI-powered task management for developers. Parses PRDs into actionable tasks and integrates with Cursor, Windsurf, and Roo. Requires ANTHROPIC_API_KEY.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "--package=task-master-ai", "task-master-ai", "--mcp"],
+      "homepage": "https://github.com/eyaltoledano/claude-task-master",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["ANTHROPIC_API_KEY"]
+    },
+    {
+      "name": "figma-context",
+      "title": "Figma Context",
+      "description": "Gives AI coding agents simplified Figma layout data. Generate code from designs in Cursor, Windsurf, and Cline. Requires FIGMA_API_KEY.",
+      "category": "Design",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "figma-developer-mcp"],
+      "homepage": "https://github.com/GLips/figma-context-mcp",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["FIGMA_API_KEY"]
+    },
+    {
+      "name": "n8n",
+      "title": "n8n Workflow",
+      "description": "Connect AI to n8n's 525+ workflow automation nodes. Discover, understand, and build complex n8n workflows via natural language. Requires N8N_API_URL.",
+      "category": "Productivity",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "n8n-mcp"],
+      "homepage": "https://github.com/czlonkowski/n8n-mcp",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["N8N_API_URL", "N8N_API_KEY"]
+    },
+    {
+      "name": "chrome-devtools",
+      "title": "Chrome DevTools",
+      "description": "Programmatic access to Chrome DevTools for AI agents. Browser automation via Puppeteer, network analysis, console inspection, performance tracing.",
+      "category": "Browser",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp"],
+      "homepage": "https://github.com/chromedevtools/chrome-devtools-mcp",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "magic-21st",
+      "title": "Magic (21st.dev)",
+      "description": "Generate modern UI components instantly from natural language in Cursor, Windsurf, and VSCode. Access a vast library of pre-built components. Requires TWENTY_FIRST_API_KEY.",
+      "category": "Design",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@21st-dev/magic"],
+      "homepage": "https://github.com/21st-dev/magic-mcp",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["TWENTY_FIRST_API_KEY"]
+    },
+    {
+      "name": "browsertools",
+      "title": "BrowserTools",
+      "description": "AI browser monitoring — console logs, network traffic, DOM inspection, screenshots, and accessibility/SEO/performance audits. Requires Chrome extension.",
+      "category": "Browser",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@agentdeskai/browser-tools-mcp"],
+      "homepage": "https://github.com/agentdeskai/browser-tools-mcp",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "neon-db",
+      "title": "Neon Database",
+      "description": "Natural language interaction with Neon Postgres databases. Create projects, run SQL, manage branches, and run safe migrations. Requires NEON_API_KEY.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@neondatabase-labs/mcp-server-neon"],
+      "homepage": "https://github.com/neondatabase-labs/mcp-server-neon",
+      "verified": true,
+      "requiresNode": true,
+      "requiresEnv": ["NEON_API_KEY"]
+    },
+    {
+      "name": "cloudflare-mcp",
+      "title": "Cloudflare",
+      "description": "Manage Cloudflare Workers, D1 databases, KV namespaces, R2 buckets, and Queues via natural language. Official Cloudflare MCP server.",
+      "category": "Cloud",
+      "transport": "Stdio",
+      "command": "npx",
+      "args": ["-y", "@cloudflare/mcp-server-cloudflare"],
+      "homepage": "https://github.com/cloudflare/mcp-server-cloudflare",
+      "verified": true,
+      "requiresNode": true
+    },
+    {
+      "name": "qdrant",
+      "title": "Qdrant Vector DB",
+      "description": "Semantic memory layer on top of Qdrant vector search engine. Store and retrieve information with semantic search. Requires QDRANT_URL.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "uvx",
+      "args": ["mcp-server-qdrant"],
+      "homepage": "https://github.com/qdrant/mcp-server-qdrant",
+      "verified": true,
+      "requiresPython": true,
+      "requiresEnv": ["QDRANT_URL", "QDRANT_API_KEY"]
+    },
+    {
+      "name": "tinybird",
+      "title": "Tinybird",
+      "description": "Query Tinybird data sources, call API endpoints, and push data files using natural language. Requires TINYBIRD_API_URL and TINYBIRD_TOKEN.",
+      "category": "Database",
+      "transport": "Stdio",
+      "command": "uvx",
+      "args": ["mcp-tinybird", "--url", "https://api.tinybird.co", "--token", "TINYBIRD_TOKEN_PLACEHOLDER"],
+      "homepage": "https://github.com/tinybirdco/mcp-tinybird",
+      "verified": true,
+      "requiresPython": true,
+      "requiresEnv": ["TINYBIRD_API_URL", "TINYBIRD_TOKEN"]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# McpNet Gateway — docker-compose
+#
+#   Default (zero-DB, JSON file persistence):
+#       docker compose up -d
+#
+#   With PostgreSQL persistence:
+#       docker compose --profile postgres up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mcpnet-gateway:latest
+    container_name: mcpnet-gateway
+    ports:
+      - "5050:5050"
+    environment:
+      # Mode: Dev (no auth) or Enterprise (token-protected)
+      McpGateway__Mode: "Dev"
+      McpGateway__AdminToken: "${MCPNET_ADMIN_TOKEN:-}"
+      McpGateway__Port: "5050"
+      # Persistence: Json (default, no DB) | sqlite | postgres
+      McpGateway__Persistence: "Json"
+      McpGateway__DataDirectory: "/app/mcp-data"
+      McpGateway__EnableMetaTools: "false"
+    volumes:
+      - mcpnet-data:/app/mcp-data
+    restart: unless-stopped
+
+  # ── Optional PostgreSQL persistence (enable with: --profile postgres) ────────
+  gateway-postgres:
+    extends:
+      service: gateway
+    profiles: ["postgres"]
+    container_name: mcpnet-gateway-pg
+    environment:
+      McpGateway__Mode: "Dev"
+      McpGateway__Port: "5050"
+      McpGateway__Persistence: "postgres"
+      McpGateway__ConnectionStrings__Postgres: "Host=postgres;Database=mcpnet;Username=mcpnet;Password=mcpnet"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    container_name: mcpnet-postgres
+    environment:
+      POSTGRES_DB: mcpnet
+      POSTGRES_USER: mcpnet
+      POSTGRES_PASSWORD: mcpnet
+    volumes:
+      - mcpnet-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcpnet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mcpnet-data:
+  mcpnet-pgdata:
