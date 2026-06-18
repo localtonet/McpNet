@@ -65,7 +65,7 @@ namespace McpNet.Transport.Http
             }
         }
 
-        private async Task HandleContextAsync(HttpListenerContext context, CancellationToken ct)
+        public async Task HandleContextAsync(HttpListenerContext context, CancellationToken ct)
         {
             var req = context.Request;
             var resp = context.Response;

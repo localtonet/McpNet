@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>McpNet.Gateway.Standalone</RootNamespace>
+
+    <!-- NuGet packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageId>McpNet.Gateway.Standalone</PackageId>
+    <Version>1.0.0</Version>
+    <Description>
+      Self-contained MCP Gateway using System.Net.HttpListener.
+      No ASP.NET Core dependency — embed in any .NET 8 application.
+      Call McpGatewayBuilder.Create().ListenOn(5050).Build() to start.
+    </Description>
+  </PropertyGroup>
+
+  <!-- Pure .NET 8 — no FrameworkReference, no ASP.NET Core -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <ProjectReference Include="..\McpNet.Gateway\McpNet.Gateway.csproj" />
+    <ProjectReference Include="..\McpNet.Transport.Http\McpNet.Transport.Http.csproj" />
+  </ItemGroup>
+
+</Project>

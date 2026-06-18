@@ -17,6 +17,7 @@ using McpNet.Gateway.Registry;
 using McpNet.Gateway.Routing;
 using McpNet.Gateway.Security;
 using McpNet.Gateway.Sessions;
+using McpNet.Gateway.Dashboard;
 using McpNet.Transport.AspNetCore;
 using McpNet.Dashboard;
 using McpNet.Host;
@@ -90,6 +91,7 @@ builder.Services.AddMcpTelemetry(builder.Configuration);
 builder.Services.AddSingleton<ServerRegistry>();
 builder.Services.AddSingleton<ToolAggregator>();
 builder.Services.AddSingleton<ToolGroupManager>();
+builder.Services.AddSingleton(new GatewayCatalogService(dataDir));
 
 // ── Meta-tools (manage the gateway over MCP itself) — opt-in ──────────────────
 if (metaTools)

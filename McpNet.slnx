@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/McpNet.Core/McpNet.Core.csproj" />
+    <Project Path="src/McpNet.Gateway.Standalone/McpNet.Gateway.Standalone.csproj" />
     <Project Path="src/McpNet.Gateway/McpNet.Gateway.csproj" />
     <Project Path="src/McpNet.Gateway.Persistence/McpNet.Gateway.Persistence.csproj" />
     <Project Path="src/McpNet.Transport.Http/McpNet.Transport.Http.csproj" />

@@ -12,8 +12,7 @@
     <ProjectReference Include="..\McpNet.Gateway.Persistence\McpNet.Gateway.Persistence.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="wwwroot\**\*" />
-  </ItemGroup>
+  <!-- wwwroot files now live in McpNet.Gateway as embedded resources.
+       McpDashboardEndpoints loads them via GatewayDashboardResources. -->
 
 </Project>

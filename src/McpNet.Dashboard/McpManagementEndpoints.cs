@@ -12,6 +12,7 @@ using McpNet.Core.Serialization;
 using McpNet.Gateway.Abstractions;
 using McpNet.Gateway.Aggregation;
 using McpNet.Gateway.Auth;
+using McpNet.Gateway.Dashboard;
 using McpNet.Gateway.Models;
 using McpNet.Gateway.Registry;
 
@@ -540,48 +541,46 @@ namespace McpNet.Dashboard
             });
 
             // ── Catalog ──────────────────────────────────────────────────────
-            // Returns embedded curated list merged with user-saved custom entries.
-            group.MapGet("/catalog", async (CancellationToken ct) =>
+            group.MapGet("/catalog", async (IServiceProvider sp, CancellationToken ct) =>
             {
-                var merged = await CatalogCache.GetMergedAsync(ct);
-                return Results.Ok(new { version = 4, updatedAt = DateTime.UtcNow, servers = merged });
+                var catalog = sp.GetRequiredService<GatewayCatalogService>();
+                return Results.Ok(new { version = 4, updatedAt = DateTime.UtcNow, servers = await catalog.GetMergedAsync(ct) });
             });
 
-            // Local search across the merged catalog (no external calls).
-            group.MapGet("/catalog/search", async (HttpContext ctx, CancellationToken ct) =>
+            group.MapGet("/catalog/search", async (HttpContext ctx, IServiceProvider sp, CancellationToken ct) =>
             {
+                var catalog = sp.GetRequiredService<GatewayCatalogService>();
                 var q = ctx.Request.Query["q"].ToString().Trim().ToLowerInvariant();
-                var all = await CatalogCache.GetMergedAsync(ct);
-                if (string.IsNullOrEmpty(q))
-                    return Results.Ok(new { servers = all });
+                var all = await catalog.GetMergedAsync(ct);
+                if (string.IsNullOrEmpty(q)) return Results.Ok(new { servers = all });
                 var filtered = all.Where(c =>
                 {
                     if (c is not System.Text.Json.JsonElement el) return false;
-                    var title = el.TryGetProperty("title", out var t) ? (t.GetString() ?? "").ToLowerInvariant() : "";
+                    var title = el.TryGetProperty("title",       out var t) ? (t.GetString() ?? "").ToLowerInvariant() : "";
                     var desc  = el.TryGetProperty("description", out var d) ? (d.GetString() ?? "").ToLowerInvariant() : "";
-                    var cat   = el.TryGetProperty("category", out var g) ? (g.GetString() ?? "").ToLowerInvariant() : "";
-                    var name  = el.TryGetProperty("name", out var n) ? (n.GetString() ?? "").ToLowerInvariant() : "";
+                    var cat   = el.TryGetProperty("category",    out var g) ? (g.GetString() ?? "").ToLowerInvariant() : "";
+                    var name  = el.TryGetProperty("name",        out var n) ? (n.GetString() ?? "").ToLowerInvariant() : "";
                     return title.Contains(q) || desc.Contains(q) || cat.Contains(q) || name.Contains(q);
                 }).ToList();
                 return Results.Ok(new { servers = filtered });
             });
 
-            // Add a custom catalog entry (saved to mcp-data/custom-catalog.json).
-            group.MapPost("/catalog/custom", async (HttpContext ctx, CancellationToken ct) =>
+            group.MapPost("/catalog/custom", async (HttpContext ctx, IServiceProvider sp, CancellationToken ct) =>
             {
+                var catalog = sp.GetRequiredService<GatewayCatalogService>();
                 var body = await ReadJsonAsync<CustomCatalogEntry>(ctx);
                 if (body is null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Command))
                     return Results.BadRequest("title and command are required");
                 body.Name = "custom-" + Guid.NewGuid().ToString("N")[..8];
                 body.Source = "custom";
-                await CatalogCache.AddCustomAsync(body, ct);
+                await catalog.AddCustomAsync(body, ct);
                 return Results.Ok(body);
             });
 
-            // Remove a custom catalog entry by name.
-            group.MapDelete("/catalog/custom/{name}", async (string name, CancellationToken ct) =>
+            group.MapDelete("/catalog/custom/{name}", async (string name, IServiceProvider sp, CancellationToken ct) =>
             {
-                await CatalogCache.RemoveCustomAsync(name, ct);
+                var catalog = sp.GetRequiredService<GatewayCatalogService>();
+                await catalog.RemoveCustomAsync(name, ct);
                 return Results.Ok();
             });
 
@@ -736,131 +735,6 @@ namespace McpNet.Dashboard
                 }
             }
             return await next(context);
-        }
-    }
-
-    /// <summary>
-    /// Serves the merged catalog: embedded curated servers + user-saved custom entries.
-    /// No external HTTP calls — fully offline-capable.
-    /// </summary>
-    internal static class CatalogCache
-    {
-        private static readonly System.Threading.SemaphoreSlim _fileLock = new System.Threading.SemaphoreSlim(1, 1);
-        private const string CustomFileName = "custom-catalog.json";
-
-        // Resolve the custom catalog file next to mcp-data/servers.json
-        private static string CustomFilePath()
-        {
-            var exe = System.IO.Path.GetDirectoryName(typeof(CatalogCache).Assembly.Location) ?? ".";
-            var dataDir = System.IO.Path.Combine(exe, "mcp-data");
-            System.IO.Directory.CreateDirectory(dataDir);
-            return System.IO.Path.Combine(dataDir, CustomFileName);
-        }
-
-        // ── Custom entries (persistent) ──────────────────────────────────────
-
-        private static async Task<List<System.Text.Json.JsonElement>> LoadCustomAsync(CancellationToken ct)
-        {
-            var path = CustomFilePath();
-            if (!System.IO.File.Exists(path)) return new();
-            try
-            {
-                var json = await System.IO.File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array
-                    ? doc.RootElement.EnumerateArray().ToList()
-                    : new();
-            }
-            catch { return new(); }
-        }
-
-        public static async Task AddCustomAsync(object entry, CancellationToken ct)
-        {
-            await _fileLock.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                var path = CustomFilePath();
-                var existing = new List<object>();
-                if (System.IO.File.Exists(path))
-                {
-                    try
-                    {
-                        var prev = await System.IO.File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
-                        var doc = System.Text.Json.JsonDocument.Parse(prev);
-                        if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                            foreach (var e in doc.RootElement.EnumerateArray())
-                                existing.Add(McpJsonOptions.Deserialize<object>(e.GetRawText())!);
-                    }
-                    catch { }
-                }
-                existing.Add(entry);
-                var json = McpJsonOptions.Serialize(existing);
-                await System.IO.File.WriteAllTextAsync(path, json, ct).ConfigureAwait(false);
-            }
-            finally { _fileLock.Release(); }
-        }
-
-        public static async Task RemoveCustomAsync(string name, CancellationToken ct)
-        {
-            await _fileLock.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                var path = CustomFilePath();
-                if (!System.IO.File.Exists(path)) return;
-                var prev = await System.IO.File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
-                var doc = System.Text.Json.JsonDocument.Parse(prev);
-                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return;
-                var kept = doc.RootElement.EnumerateArray()
-                    .Where(e => !(e.TryGetProperty("name", out var n) && n.GetString() == name))
-                    .Select(e => McpJsonOptions.Deserialize<object>(e.GetRawText()))
-                    .Where(x => x != null)
-                    .ToList();
-                await System.IO.File.WriteAllTextAsync(path, McpJsonOptions.Serialize(kept), ct).ConfigureAwait(false);
-            }
-            finally { _fileLock.Release(); }
-        }
-
-        // ── Merged catalog ────────────────────────────────────────────────────
-
-        public static async Task<List<object>> GetMergedAsync(CancellationToken ct = default)
-        {
-            var merged = new List<object>();
-
-            // 1. Embedded curated catalog (built into the DLL)
-            try
-            {
-                var asm = typeof(CatalogCache).Assembly;
-                var resourceName = asm.GetManifestResourceNames()
-                    .FirstOrDefault(n => n.EndsWith("catalog.json", StringComparison.OrdinalIgnoreCase));
-                if (resourceName != null)
-                {
-                    using var stream = asm.GetManifestResourceStream(resourceName)!;
-                    using var reader = new System.IO.StreamReader(stream);
-                    var json = await reader.ReadToEndAsync().ConfigureAwait(false);
-                    var doc = System.Text.Json.JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("servers", out var svrs))
-                        foreach (var s in svrs.EnumerateArray())
-                        {
-                            var raw = McpJsonOptions.Deserialize<object>(s.GetRawText());
-                            if (raw != null) merged.Add(raw);
-                        }
-                }
-            }
-            catch { }
-
-            // 2. User-saved custom entries (from mcp-data/custom-catalog.json)
-            try
-            {
-                var customs = await LoadCustomAsync(ct).ConfigureAwait(false);
-                foreach (var c in customs)
-                {
-                    var raw = McpJsonOptions.Deserialize<object>(c.GetRawText());
-                    if (raw != null) merged.Add(raw);
-                }
-            }
-            catch { }
-
-            return merged;
         }
     }
 }

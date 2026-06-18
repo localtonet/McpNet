@@ -11,4 +11,9 @@
     <ProjectReference Include="..\McpNet.Core\McpNet.Core.csproj" />
   </ItemGroup>
 
+  <!-- Dashboard static files — embedded so any host (ASP.NET Core or HttpListener) can serve them -->
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**\*" />
+  </ItemGroup>
+
 </Project>
