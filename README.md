@@ -111,8 +111,8 @@ src/
 ### From source
 
 ```bash
-git clone https://github.com/your-org/mcpnet-gateway
-cd mcpnet-gateway
+git clone https://github.com/localtonet/McpNet
+cd McpNet
 
 # Build
 dotnet build src/McpNet.Host/McpNet.Host.csproj -c Release
