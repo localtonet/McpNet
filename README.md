@@ -756,13 +756,15 @@ Test coverage includes:
 
 | Area | Status | Recommendation |
 |---|---|---|
-| `ClientSecret` (OAuth) | **Encrypted** — `enc:` prefix in `servers.json` | Back up `mcp-data/dp-keys/`; see [Secrets at Rest](#secrets-at-rest) |
-| `BearerToken` (servers & clients) | **Encrypted** — `enc:` prefix in JSON files | Same as above |
-| Admin token | Env var `MCPGATEWAY_ADMIN_TOKEN` takes precedence | Always set this in production; do not use the default |
-| Dev mode | No authentication | Never expose Dev mode to the internet |
+| `ClientSecret` (OAuth) | **Encrypted at rest** — `enc:` prefix in `servers.json` | Back up `mcp-data/dp-keys/`; see [Secrets at Rest](#secrets-at-rest) |
+| `BearerToken` (upstream servers) | **Encrypted at rest** — `enc:` prefix in `servers.json` | Same as above |
+| `BearerToken` (clients) | **Encrypted at rest** in JSON persistence (`enc:` prefix); stored plaintext with the EF/SQL backends. Token is high-entropy random | Treat `clients.json` / the DB as secret; never commit it (see below) |
+| Admin token | Env var `MCPGATEWAY_ADMIN_TOKEN` takes precedence over `appsettings.json`; compared in constant time | Always set this in production; never commit a real token to `appsettings.json` |
+| Dev mode | **No authentication** on `/api`, `/mcp` or `/dashboard`; binds on all interfaces | Default is Dev. Never expose it to a network — registering a stdio server runs local commands. Use `Mode=Enterprise` for any shared/exposed deployment |
 | Client bearer tokens | 32-byte cryptographically random (URL-safe Base64) | Rotate via `POST /api/clients/{id}/regenerate` or `mcpnet client regenerate <name>` |
 | GET `/mcp` SSE | Authenticated in Enterprise mode (same Bearer check as POST) | Enforce Enterprise mode in production |
 | TLS | Not handled by the gateway | Place behind a reverse proxy (nginx, Caddy, YARP) for TLS termination in production |
+| Runtime data (`mcp-data/`) | Contains tokens, OAuth secrets, audit logs **and** the `dp-keys/` that decrypt them | **Never commit `mcp-data/` to source control.** It is git-ignored by default; if it was committed previously, purge it from history and rotate all tokens |
 
 ---
 
@@ -778,104 +780,3 @@ Test coverage includes:
 ---
 
 *Built on .NET 8 · System.Text.Json only · Nullable enabled · No implicit usings*
-
-
-The CLI talks to the gateway's `/api` surface (uses `AdminToken`).
-
-```bash
-# Servers
-mcpnet servers                       # list registered upstream servers
-mcpnet register --name ctx7 --url http://localhost:9000/mcp
-mcpnet deregister --name ctx7
-mcpnet refresh                       # re-discover upstream tools
-
-# Tools
-mcpnet tools                         # list aggregated tools
-mcpnet enable  --name ctx7__search
-mcpnet disable --name ctx7__search
-
-# Groups
-mcpnet groups                        # list tool groups
-mcpnet group create <name>
-
-# Clients & audit
-mcpnet clients
-mcpnet client <name>
-mcpnet audit                         # recent audit log
-mcpnet version
-```
-
-Global flags: `--url <gateway>` (default `http://localhost:5051`), `--token <adminToken>`.
-
----
-
-## Upstream OAuth
-
-Any registered server can authenticate to its upstream using **OAuth 2.0 client-credentials**. Configure `OAuth` on the `RegisteredServer`:
-
-```jsonc
-{
-  "Name": "secure-api",
-  "Url": "https://upstream/mcp",
-  "OAuth": {
-    "Enabled": true,
-    "TokenUrl": "https://auth.example.com/oauth/token",
-    "ClientId": "my-client",
-    "ClientSecret": "my-secret",
-    "Scopes": ["mcp.read", "mcp.write"]
-  }
-}
-```
-
-Behavior:
-- Tokens are cached and refreshed automatically ~30s before expiry.
-- On a `401` from the upstream, the cached token is invalidated and the request is retried **once** with a fresh token.
-- If `OAuth` is omitted, a static `BearerToken` (if set) is used instead.
-
-> **Security note:** `ClientSecret` is currently stored in plaintext in `servers.json`. Restrict file permissions on `DataDirectory`, or inject secrets via environment/secret store in production. This is a known limitation.
-
----
-
-## Meta-tools (gateway self-management) — _off by default_
-
-When `EnableMetaTools: true`, the gateway exposes its own management surface as MCP tools prefixed `mcpnet__`, so an MCP client can administer the gateway:
-
-`mcpnet__list_servers`, `mcpnet__register_server`, `mcpnet__deregister_server`, `mcpnet__list_tools`, `mcpnet__enable_tool`, `mcpnet__disable_tool`, `mcpnet__refresh`, and (when groups are configured) `mcpnet__create_group`, `mcpnet__list_groups`.
-
-Disabled by default to keep the default deployment minimal and safe.
-
----
-
-## OpenTelemetry — _off by default_
-
-Set `Telemetry:Enabled: true` to emit traces and metrics:
-- Traces: `mcp.tool.call` spans (source `McpNet.Gateway`), plus ASP.NET Core & HttpClient instrumentation.
-- Metrics: `mcpnet.tool_calls` (counter), `mcpnet.tool_call.duration` (histogram).
-
-Exporter selection:
-- If `OtlpEndpoint` is set → OTLP exporter.
-- Otherwise → Console exporter (useful for local debugging).
-
----
-
-## Docker
-
-```bash
-# Default (JSON persistence)
-docker compose up --build
-
-# With Postgres
-docker compose --profile postgres up --build
-```
-
-The image is a multi-stage build, runs as a non-root user, exposes port `5050`, and includes a healthcheck.
-
----
-
-## Testing
-
-```bash
-dotnet test McpNet.slnx -c Release
-```
-
-Covers protocol serialization, session management, auth, gateway models, OAuth token provider (caching/refresh/retry), meta-tool handler, JSON persistence round-trips, and CLI argument parsing.

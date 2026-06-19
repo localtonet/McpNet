@@ -361,3 +361,14 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# ── McpNet runtime data & secrets (NEVER commit) ─────────────────────────────
+# Persisted gateway state: client/server tokens, OAuth secrets, audit logs and
+# the Data Protection keys that decrypt them.
+mcp-data/
+**/mcp-data/
+**/dp-keys/
+*.ndjson
+
+# Local app settings overrides that may contain secrets (AdminToken, conn strings)
+appsettings.*.local.json
+appsettings.Local.json
