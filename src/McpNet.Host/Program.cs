@@ -85,19 +85,46 @@ builder.Services.AddMcpGateway(o =>
     o.AuthOptions.AdminToken  = adminToken;
 });
 
-// ── Optional OpenTelemetry (default off; audit log is the default observability) ──
-builder.Services.AddMcpTelemetry(builder.Configuration);
+// Managed HttpClient factory (connection-pool reuse across upstream calls).
+builder.Services.AddHttpClient();
+// In-memory sliding-window rate limiter (replaces audit-log scan on every call).
+builder.Services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
 
-builder.Services.AddSingleton<ServerRegistry>();
-builder.Services.AddSingleton<ToolAggregator>();
+builder.Services.AddSingleton<ServerRegistry>(sp =>
+{
+    // Wire the IHttpClientFactory so upstream HttpClients share the managed connection pool.
+    var factory = sp.GetService<System.Net.Http.IHttpClientFactory>();
+    Func<System.Net.Http.HttpClient>? httpFactory = factory != null ? () => factory.CreateClient("McpUpstream") : null;
+    return new ServerRegistry(
+        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+        httpFactory);
+});
+builder.Services.AddSingleton<ToolAggregator>(sp =>
+    new ToolAggregator(
+        sp.GetRequiredService<ServerRegistry>(),
+        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+        sp.GetService<McpNet.Gateway.Abstractions.IToolStateStore>()));
 builder.Services.AddSingleton<ToolGroupManager>();
 builder.Services.AddSingleton(new GatewayCatalogService(dataDir));
+
+// ── Optional OpenTelemetry (default off; audit log is the default observability) ──
+builder.Services.AddMcpTelemetry(builder.Configuration);
 
 // ── Meta-tools (manage the gateway over MCP itself) - opt-in ──────────────────
 if (metaTools)
     builder.Services.AddSingleton<MetaToolHandler>();
 
-builder.Services.AddSingleton<GatewayRequestRouter>();
+builder.Services.AddSingleton<GatewayRequestRouter>(sp =>
+    new GatewayRequestRouter(
+        sp.GetRequiredService<ToolAggregator>(),
+        sp.GetRequiredService<ServerRegistry>(),
+        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+        sp.GetRequiredService<ToolGroupManager>(),
+        sp.GetRequiredService<McpNet.Gateway.Sessions.GatewaySessionManager>(),
+        sp.GetService<McpNet.Gateway.Abstractions.IClientRepository>(),
+        sp.GetService<McpNet.Gateway.Abstractions.IAuditLogRepository>(),
+        sp.GetService<MetaToolHandler>(),
+        sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>()));
 
 builder.Services.AddHostedService<ToolRefreshBackgroundService>();
 

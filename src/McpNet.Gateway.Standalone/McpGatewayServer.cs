@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -32,6 +33,8 @@ namespace McpNet.Gateway.Standalone
         private CancellationTokenSource? _cts;
         private Task?                    _acceptLoop;
         private Task?                    _refreshLoop;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<int, Task> _activeRequests = new();
+        private int _nextRequestId;
 
         internal McpGatewayServer(IServiceProvider sp, McpGatewayOptions opts)
         {
@@ -68,6 +71,14 @@ namespace McpNet.Gateway.Standalone
             _listener?.Stop();
             if (_acceptLoop  is not null) try { await _acceptLoop.ConfigureAwait(false); }  catch { }
             if (_refreshLoop is not null) try { await _refreshLoop.ConfigureAwait(false); } catch { }
+            // Wait for in-flight requests to finish (up to 5 s).
+            var pending = _activeRequests.Values.ToArray();
+            if (pending.Length > 0)
+            {
+                using var drain = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try { await Task.WhenAll(pending).WaitAsync(drain.Token).ConfigureAwait(false); }
+                catch { }
+            }
         }
 
         public async ValueTask DisposeAsync() => await StopAsync().ConfigureAwait(false);
@@ -76,7 +87,18 @@ namespace McpNet.Gateway.Standalone
         {
             while (!ct.IsCancellationRequested && _listener?.IsListening == true)
             {
-                try { _ = DispatchAsync(await _listener.GetContextAsync().ConfigureAwait(false), ct); }
+                try
+                {
+                    var ctx = await _listener.GetContextAsync().ConfigureAwait(false);
+                    var rid = System.Threading.Interlocked.Increment(ref _nextRequestId);
+                    // Wrap dispatch so completion removes it from the tracking dict.
+                    async Task RunAndTrack()
+                    {
+                        try   { await DispatchAsync(ctx, ct).ConfigureAwait(false); }
+                        finally { _activeRequests.TryRemove(rid, out _); }
+                    }
+                    _activeRequests[rid] = RunAndTrack();
+                }
                 catch (HttpListenerException) when (ct.IsCancellationRequested) { break; }
                 catch (ObjectDisposedException) { break; }
             }
@@ -87,7 +109,7 @@ namespace McpNet.Gateway.Standalone
             var agg = _sp.GetRequiredService<ToolAggregator>();
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+                // Refresh immediately on startup, then every 60 s.
                 while (!ct.IsCancellationRequested)
                 {
                     try { await agg.RefreshAsync(ct).ConfigureAwait(false); }

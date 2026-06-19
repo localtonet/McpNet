@@ -64,6 +64,9 @@ namespace McpNet.Gateway.Extensions
             services.AddSingleton<IAuditLogRepository>(
                 new JsonAuditLogRepository(opts.DataDirectory, opts.AuditLogReadLimit));
 
+            services.AddSingleton<IToolStateStore>(
+                new JsonToolStateStore(opts.DataDirectory));
+
             return services;
         }
     }

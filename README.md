@@ -18,6 +18,7 @@
    - [Stdio (npx / local process)](#stdio-npx--local-process)
    - [Upstream Bearer & OAuth 2.0](#upstream-bearer--oauth-20)
 8. [Tool Aggregation](#tool-aggregation)
+   - [Gateway Chaining (Gateway-of-Gateways)](#gateway-chaining-gateway-of-gateways)
 9. [Tool Groups](#tool-groups)
 10. [Client Management & Per-Client Access Control](#client-management--per-client-access-control)
 11. [Rate Limiting](#rate-limiting)
@@ -289,6 +290,53 @@ Each upstream server is refreshed **concurrently** (`Task.WhenAll`). When a serv
 ### Individual tool enable/disable
 
 Any tool can be disabled without removing the upstream server. Disabled tools are hidden from the tool list and return an error if called directly.
+
+---
+
+### Gateway Chaining (Gateway-of-Gateways)
+
+Because McpNet Gateway itself speaks the MCP protocol, one gateway can be registered as an **upstream server** of another gateway. This lets you build federated topologies without any special configuration.
+
+**Example scenario:**
+
+- **Gateway A** — Alice's machine, exposes tools `read_file`, `search_web`
+- **Gateway B** — Bob's machine, exposes tools `generate_image`, `send_email`
+- **Gateway C** — shared server; registers A as `"alice"` and B as `"bob"`
+
+When an AI agent (Claude, Cursor, etc.) connects to **C**, it sees a single unified tool list:
+
+```
+alice__read_file
+alice__search_web
+bob__generate_image
+bob__send_email
+```
+
+```
+AI Agent (Claude)
+      │  one MCP connection
+      ▼
+┌──────────────────────┐
+│   Gateway C          │  ← AI sees this only; tool names prefixed by C
+└───────┬──────┬───────┘
+        │      │  upstream MCP calls (original tool names, no prefix)
+        ▼      ▼
+   Gateway A  Gateway B
+```
+
+**How it works end-to-end:**
+
+1. C's `ToolAggregator` refreshes A and B as normal upstream MCP servers.
+2. Each tool is stored with `FullName = "{serverName}__{localName}"` (e.g. `alice__read_file`) and `LocalName = "read_file"`.
+3. When the agent calls `tools/list`, C returns the `FullName` values — the agent sees the prefix.
+4. When the agent calls `tools/call` with `alice__read_file`, C strips the prefix and forwards `read_file` to Gateway A. A and B never see the prefix.
+
+**Key points:**
+
+- The prefix (`alice`, `bob`) is whatever name **C's operator** gives the upstream gateway when registering it — it is not fixed by A or B.
+- Name collisions are impossible: even if A and B both expose a tool named `get_time`, C presents them as `alice__get_time` and `bob__get_time`.
+- Auth, rate limiting, and ACLs on C apply to the aggregated view; A and B can independently require their own bearer tokens from C.
+- Chaining depth is unlimited — a gateway can aggregate other aggregating gateways.
 
 ---
 

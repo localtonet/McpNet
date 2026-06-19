@@ -61,10 +61,26 @@ namespace McpNet.Gateway.Standalone
             services.AddSingleton<GatewaySessionManager>();
 
             // Core services
-            services.AddSingleton<ServerRegistry>();
-            services.AddSingleton<ToolAggregator>();
+            services.AddSingleton<ServerRegistry>(sp =>
+                new ServerRegistry(sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>()));
+            services.AddSingleton<ToolAggregator>(sp =>
+                new ToolAggregator(
+                    sp.GetRequiredService<ServerRegistry>(),
+                    sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+                    sp.GetService<McpNet.Gateway.Abstractions.IToolStateStore>()));
             services.AddSingleton<ToolGroupManager>();
-            services.AddSingleton<GatewayRequestRouter>();
+            services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
+            services.AddSingleton<GatewayRequestRouter>(sp =>
+                new GatewayRequestRouter(
+                    sp.GetRequiredService<ToolAggregator>(),
+                    sp.GetRequiredService<ServerRegistry>(),
+                    sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+                    sp.GetRequiredService<ToolGroupManager>(),
+                    sp.GetRequiredService<McpNet.Gateway.Sessions.GatewaySessionManager>(),
+                    sp.GetService<McpNet.Gateway.Abstractions.IClientRepository>(),
+                    sp.GetService<McpNet.Gateway.Abstractions.IAuditLogRepository>(),
+                    null, // MetaToolHandler not used in standalone by default
+                    sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>()));
 
             // Shared catalog service (no ASP.NET Core)
             services.AddSingleton(new GatewayCatalogService(dataDir));

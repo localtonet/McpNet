@@ -15,20 +15,25 @@ namespace McpNet.Gateway.Aggregation
     {
         private readonly ServerRegistry _registry;
         private readonly IServerRepository _serverRepo;
+        private readonly IToolStateStore? _stateStore;
         private readonly ConcurrentDictionary<string, AggregatedTool> _toolCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _diagnosticsLock = new object();
+        private readonly object _stateLock = new object();
         private List<ToolRefreshDiagnostic> _lastRefreshDiagnostics = new List<ToolRefreshDiagnostic>();
         private readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
         private volatile bool _isRefreshing;
         private DateTime _lastRefreshedAt = DateTime.MinValue;
+        private Dictionary<string, bool> _persistedState = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private bool _stateLoaded;
 
         public bool IsRefreshing => _isRefreshing;
         public DateTime LastRefreshedAt => _lastRefreshedAt;
 
-        public ToolAggregator(ServerRegistry registry, IServerRepository serverRepo)
+        public ToolAggregator(ServerRegistry registry, IServerRepository serverRepo, IToolStateStore? stateStore = null)
         {
             _registry = registry;
             _serverRepo = serverRepo;
+            _stateStore = stateStore;
         }
 
         public async Task RefreshAsync(CancellationToken ct = default)
@@ -146,6 +151,28 @@ namespace McpNet.Gateway.Aggregation
 
                 lock (_diagnosticsLock)
                     _lastRefreshDiagnostics = allDiags.ToList();
+
+                // Load persisted tool-enabled state on the first refresh (lazy, inside lock).
+                if (!_stateLoaded && _stateStore != null)
+                {
+                    var loaded = await _stateStore.LoadAsync(ct).ConfigureAwait(false);
+                    lock (_stateLock)
+                    {
+                        if (!_stateLoaded)
+                        {
+                            _persistedState = loaded;
+                            _stateLoaded = true;
+                        }
+                    }
+                }
+                // Re-apply persisted enabled/disabled overrides to the freshly built cache.
+                lock (_stateLock)
+                {
+                    foreach (var kv in _persistedState)
+                        if (_toolCache.TryGetValue(kv.Key, out var t))
+                            t.Enabled = kv.Value;
+                }
+
                 _lastRefreshedAt = DateTime.UtcNow;
             }
             finally
@@ -166,8 +193,17 @@ namespace McpNet.Gateway.Aggregation
 
         public void SetToolEnabled(string fullName, bool enabled)
         {
-            if (_toolCache.TryGetValue(fullName, out var tool))
-                tool.Enabled = enabled;
+            if (!_toolCache.TryGetValue(fullName, out var tool)) return;
+            tool.Enabled = enabled;
+            Dictionary<string, bool>? snapshot = null;
+            lock (_stateLock)
+            {
+                _persistedState[fullName] = enabled;
+                snapshot = new Dictionary<string, bool>(_persistedState, StringComparer.OrdinalIgnoreCase);
+            }
+            // Best-effort async persist; fire-and-forget is acceptable for durability (state is in memory).
+            if (_stateStore != null)
+                _ = _stateStore.SaveAsync(snapshot, CancellationToken.None);
         }
 
         public List<ToolRefreshDiagnostic> GetLastRefreshDiagnostics()

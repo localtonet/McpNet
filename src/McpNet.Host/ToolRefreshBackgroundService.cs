@@ -12,7 +12,6 @@ namespace McpNet.Host
         private readonly ToolAggregator _aggregator;
         private readonly ILogger<ToolRefreshBackgroundService> _logger;
         private static readonly TimeSpan Interval = TimeSpan.FromSeconds(60);
-        private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(15);
 
         public ToolRefreshBackgroundService(ToolAggregator aggregator, ILogger<ToolRefreshBackgroundService> logger)
         {
@@ -22,8 +21,8 @@ namespace McpNet.Host
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            try { await Task.Delay(InitialDelay, stoppingToken); } catch (OperationCanceledException) { return; }
-
+            // Refresh immediately on startup so tools are available as soon as possible,
+            // then repeat every 60 s.
             while (!stoppingToken.IsCancellationRequested)
             {
                 try

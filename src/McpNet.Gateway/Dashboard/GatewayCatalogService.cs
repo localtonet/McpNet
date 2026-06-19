@@ -16,7 +16,7 @@ namespace McpNet.Gateway.Dashboard
     ///
     /// No HTTP / ASP.NET Core dependency - usable from any host.
     /// </summary>
-    public sealed class GatewayCatalogService
+    public sealed class GatewayCatalogService : IDisposable
     {
         private readonly string _customFilePath;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
@@ -125,5 +125,7 @@ namespace McpNet.Gateway.Dashboard
             catch { }
             return existing;
         }
+
+        public void Dispose() => _lock.Dispose();
     }
 }
