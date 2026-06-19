@@ -10,7 +10,7 @@ namespace McpNet.Gateway.Extensions
     {
         /// <summary>
         /// Registers JSON file-based repository implementations.
-        /// No database required — data is stored as JSON files in <paramref name="dataDirectory"/>.
+        /// No database required - data is stored as JSON files in <paramref name="dataDirectory"/>.
         /// Secrets (BearerToken, OAuthConfig.ClientSecret, McpClient.BearerToken) are encrypted
         /// at rest using the registered <see cref="ISecretProtector"/> (defaults to
         /// <see cref="NullSecretProtector"/> if none is registered).

@@ -48,11 +48,11 @@ namespace McpNet.Gateway.Standalone.Security
         public string? Unprotect(string? value)
         {
             if (string.IsNullOrEmpty(value)) return value;
-            if (!value.StartsWith(Prefix, StringComparison.Ordinal)) return value; // plaintext — backward compat
+            if (!value.StartsWith(Prefix, StringComparison.Ordinal)) return value; // plaintext - backward compat
 
             byte[] payload;
             try { payload = Convert.FromBase64String(value.Substring(Prefix.Length)); }
-            catch { return value; } // corrupt — return as-is, let caller deal with it
+            catch { return value; } // corrupt - return as-is, let caller deal with it
 
             if (payload.Length < NonceSize + TagSize) return value;
 
@@ -69,7 +69,7 @@ namespace McpNet.Gateway.Standalone.Security
             }
             catch
             {
-                // Key mismatch / corruption — return encrypted value as-is rather than crashing.
+                // Key mismatch / corruption - return encrypted value as-is rather than crashing.
                 return value;
             }
         }

@@ -51,12 +51,6 @@ namespace McpNet.Gateway.Standalone
             _listener.Start();
             _acceptLoop  = AcceptLoopAsync(_cts.Token);
             _refreshLoop = RefreshLoopAsync(_cts.Token);
-
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"[McpGateway] Listening  → {prefix}");
-            Console.WriteLine($"[McpGateway] Dashboard  → {prefix}dashboard");
-            Console.WriteLine($"[McpGateway] Mode       → {_opts.Mode}");
-            Console.ResetColor();
             return Task.CompletedTask;
         }
 

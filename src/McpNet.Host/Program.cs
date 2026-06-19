@@ -23,7 +23,7 @@ using McpNet.Dashboard;
 using McpNet.Host;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// McpNet Gateway — standalone host
+// McpNet Gateway - standalone host
 // Usage: mcpnet-gateway  (reads appsettings.json from cwd)
 //        MCPGateway__Mode=Enterprise MCPGateway__AdminToken=secret ./mcpnet-gateway
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ builder.WebHost.ConfigureKestrel(o =>
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 // ── Data Protection (secret encryption at rest) ─────────────────────────────
-// Keys stored in <dataDir>/dp-keys — persisted alongside the JSON data files so
+// Keys stored in <dataDir>/dp-keys - persisted alongside the JSON data files so
 // the gateway can decrypt secrets after a restart.
 builder.Services
     .AddDataProtection()
@@ -93,7 +93,7 @@ builder.Services.AddSingleton<ToolAggregator>();
 builder.Services.AddSingleton<ToolGroupManager>();
 builder.Services.AddSingleton(new GatewayCatalogService(dataDir));
 
-// ── Meta-tools (manage the gateway over MCP itself) — opt-in ──────────────────
+// ── Meta-tools (manage the gateway over MCP itself) - opt-in ──────────────────
 if (metaTools)
     builder.Services.AddSingleton<MetaToolHandler>();
 

@@ -32,11 +32,11 @@ namespace McpNet.Gateway.Standalone.Management
             var path   = ctx.Request.Url?.AbsolutePath?.Trim('/') ?? "";
             var segs   = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            // GET /api/info — no auth
+            // GET /api/info - no auth
             if (method == "GET" && segs.Length == 2 && Seg(segs, 1) == "info")
             { await HandleInfoAsync(ctx, ct); return; }
 
-            // All other /api/* — require admin auth
+            // All other /api/* - require admin auth
             var auth = _sp.GetRequiredService<GatewayAuthenticator>();
             if (!auth.IsDevMode)
             {

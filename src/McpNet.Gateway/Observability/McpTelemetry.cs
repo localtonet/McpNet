@@ -6,7 +6,7 @@ namespace McpNet.Gateway.Observability
     /// <summary>
     /// Lightweight OpenTelemetry instrumentation primitives for the gateway.
     /// These are always defined but carry near-zero cost when no listener/exporter is
-    /// attached. OpenTelemetry export is opt-in at the host level (default off) — by
+    /// attached. OpenTelemetry export is opt-in at the host level (default off) - by
     /// default the gateway relies on the built-in audit log for observability.
     /// </summary>
     public static class McpTelemetry

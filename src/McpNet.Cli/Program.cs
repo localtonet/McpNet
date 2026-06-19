@@ -67,7 +67,7 @@ namespace McpNet.Cli
             }
             catch (System.Net.Http.HttpRequestException ex)
             {
-                Error($"Cannot reach gateway at {baseUrl} — {ex.Message}");
+                Error($"Cannot reach gateway at {baseUrl} - {ex.Message}");
                 return 2;
             }
         }
@@ -111,7 +111,7 @@ namespace McpNet.Cli
         private static int Whoami(string baseUrl, CliConfig cfg)
         {
             Console.WriteLine($"Gateway : {baseUrl}");
-            Console.WriteLine($"Token   : {(cfg.Token != null ? new string('*', Math.Min(cfg.Token.Length, 6)) + "..." : "(none — Dev mode or env var)")}" );
+            Console.WriteLine($"Token   : {(cfg.Token != null ? new string('*', Math.Min(cfg.Token.Length, 6)) + "..." : "(none - Dev mode or env var)")}" );
             Console.WriteLine($"Source  : {CliConfig.ConfigPath}");
             return 0;
         }
@@ -338,7 +338,7 @@ namespace McpNet.Cli
                     var result = await api.PostAsync("/api/clients", new { name });
                     Success($"Created client '{name}'");
                     PrintJson(result);
-                    Console.WriteLine("\n⚠  Save the bearerToken now — it won't be shown again.");
+                    Console.WriteLine("\n⚠  Save the bearerToken now - it won't be shown again.");
                     return 0;
                 }
                 case "delete":
@@ -360,7 +360,7 @@ namespace McpNet.Cli
                     var result = await api.PostAsync($"/api/clients/{id}/regenerate", null);
                     Success($"Token regenerated for '{name}'");
                     PrintJson(result);
-                    Console.WriteLine("\n⚠  Save the new bearerToken now — it won't be shown again.");
+                    Console.WriteLine("\n⚠  Save the new bearerToken now - it won't be shown again.");
                     return 0;
                 }
                 case "update":
@@ -461,7 +461,7 @@ namespace McpNet.Cli
 
         private static void PrintHelp()
         {
-            Console.WriteLine(@"mcpnet — McpNet Gateway CLI
+            Console.WriteLine(@"mcpnet - McpNet Gateway CLI
 
 USAGE
   mcpnet <command> [options]

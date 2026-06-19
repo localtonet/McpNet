@@ -185,7 +185,7 @@ namespace McpNet.Transport.Http
             // GET /mcp opens a persistent SSE stream for server→client notifications
             var sessionId = req.Headers[McpHeaders.SessionId];
 
-            // Enterprise auth — same check as POST
+            // Enterprise auth - same check as POST
             if (_auth.RequiresMcpAuth)
             {
                 var authHeader = req.Headers["Authorization"];

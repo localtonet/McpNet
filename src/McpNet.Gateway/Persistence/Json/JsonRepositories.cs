@@ -29,7 +29,7 @@ namespace McpNet.Gateway.Persistence.Json
         protected virtual T OnLoad(T item) => item;
 
         /// <summary>Called before saving each item to disk. Override to encrypt secrets.
-        /// Must return a COPY — do not mutate the in-memory item.</summary>
+        /// Must return a COPY - do not mutate the in-memory item.</summary>
         protected virtual T OnSave(T item) => item;
 
         protected async Task<List<T>> LoadAsync(CancellationToken ct)
@@ -46,7 +46,7 @@ namespace McpNet.Gateway.Persistence.Json
 
         protected async Task SaveAsync(List<T> items, CancellationToken ct)
         {
-            // Encrypt secrets on save (clone — never mutate the live in-memory list)
+            // Encrypt secrets on save (clone - never mutate the live in-memory list)
             var toSave = new List<T>(items.Count);
             foreach (var item in items)
                 toSave.Add(OnSave(item));

@@ -69,7 +69,7 @@ namespace McpNet.Gateway.Standalone
             // Shared catalog service (no ASP.NET Core)
             services.AddSingleton(new GatewayCatalogService(dataDir));
 
-            // MCP transport (McpNet.Transport.Http — no ASP.NET Core)
+            // MCP transport (McpNet.Transport.Http - no ASP.NET Core)
             services.AddSingleton(new HttpListenerMcpOptions { Port = _opts.Port, McpPath = "/mcp" });
             services.AddSingleton<HttpListenerMcpTransport>();
 

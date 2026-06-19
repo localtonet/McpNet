@@ -60,6 +60,7 @@ code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.35); p
   box-shadow: 0 6px 18px rgba(99,102,241,.4);
   font-size: 18px; color: #fff;
 }
+.brand .logo svg { width: 23px; height: 23px; }
 .brand .brand-text { line-height: 1.2; }
 .brand .brand-text strong { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
 .brand .brand-text span { font-size: 11px; color: var(--muted); }
@@ -193,6 +194,7 @@ td strong { color: var(--text); font-weight: 600; }
 .chip.green { background: rgba(34,197,94,.14); color: var(--success); }
 .chip.red { background: rgba(239,68,68,.14); color: var(--danger); }
 .chip.orange { background: rgba(245,158,11,.14); color: var(--warning); }
+.chip.yellow { background: rgba(245,158,11,.14); color: var(--warning); }
 .chip.blue { background: rgba(99,102,241,.16); color: var(--accent-hover); }
 .chip.gray { background: rgba(255,255,255,.05); color: var(--muted); }
 
@@ -236,8 +238,29 @@ td strong { color: var(--text); font-weight: 600; }
   padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); transition: .15s;
 }
 .modal input:focus, .modal select:focus, .modal textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.modal input::placeholder, .modal textarea::placeholder { color: var(--muted); opacity: .7; }
 .modal textarea { resize: vertical; min-height: 80px; font-family: var(--mono); }
 .modal .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+/* Required-field marker + inline field hint (consistent across all modals) */
+.req { color: var(--danger); font-weight: 700; margin-left: 2px; }
+.field-hint { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin: 5px 0 0; line-height: 1.4; }
+.modal label .field-opt { color: var(--muted); font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+
+/* Generic form rows (used by the env-var / API-key install modal) */
+.form-row { margin-top: 14px; }
+.form-row:first-child { margin-top: 0; }
+.form-label { display: block; color: var(--text-dim); font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.form-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); transition: .15s;
+}
+.form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.form-input::placeholder { color: var(--muted); opacity: .7; }
+
+/* Inline checkbox label (OAuth toggle etc.) */
+.check-inline { display: flex; align-items: center; gap: 9px; margin-top: 4px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
+.check-inline input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .modal-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; }
 .modal-icon.warn { background: rgba(245,158,11,.14); color: var(--warning); }
 .modal-icon svg { width: 20px; height: 20px; }
@@ -303,11 +326,38 @@ input:checked + .toggle-slider:before { transform: translateX(16px); }
   border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;
 }
 .pref-row .pref-label { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
-.pref-row .pref-hint { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+.pref-row .pref-hint { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; font-weight: 400; }
 .pref-row input[type="number"] {
   width: 120px; background: var(--bg-elev); border: 1px solid var(--border);
   color: var(--text); padding: 7px 10px; border-radius: 8px; font-size: 13px;
   font-family: var(--font);
+}
+.pref-row input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Per-server rate-limit field inside the styled checkbox list.
+   Two classes beats `.modal input { width:100% }`, keeping it compact + right-aligned. */
+.form-check .fc-rate {
+  width: 86px; flex: 0 0 auto; text-align: right;
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 9px; border-radius: 7px; font-size: 12px; font-family: var(--font);
+}
+.form-check .fc-rate:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.fc-rate-hint {
+  padding: 8px 12px; font-size: 11px; color: var(--muted);
+  background: rgba(255,255,255,.02); border-top: 1px dashed var(--border);
+}
+
+/* Consistent number inputs everywhere - drop the ugly native dark spinners. */
+.modal input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.modal input[type="number"]::-webkit-outer-spin-button,
+.modal input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Section heading inside list modals (Servers / Tool Groups) */
+.perm-section { margin-bottom: 18px; }
+.perm-section:last-child { margin-bottom: 0; }
+.perm-section-title {
+  font-weight: 600; font-size: 12px; color: var(--muted); margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: .5px;
 }
 .pref-row input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 

@@ -38,7 +38,7 @@ namespace McpNet.Gateway.Aggregation
             waitCts.CancelAfter(TimeSpan.FromSeconds(30));
             if (!await _refreshLock.WaitAsync(0).ConfigureAwait(false))
             {
-                // Another refresh is already running; wait briefly then return —
+                // Another refresh is already running; wait briefly then return -
                 // the caller will pick up the freshly-populated cache when it reads tools.
                 try { await _refreshLock.WaitAsync(waitCts.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
@@ -56,7 +56,7 @@ namespace McpNet.Gateway.Aggregation
                 var allNewKeys  = new System.Collections.Concurrent.ConcurrentBag<string>();
                 var allDiags    = new System.Collections.Concurrent.ConcurrentBag<ToolRefreshDiagnostic>();
 
-                // Each server task writes its tools into the shared cache AS SOON AS it finishes —
+                // Each server task writes its tools into the shared cache AS SOON AS it finishes -
                 // a slow or unresponsive server therefore never blocks the others from being visible.
                 var serverTasks = enabledServers.Select(async server =>
                 {
@@ -135,7 +135,7 @@ namespace McpNet.Gateway.Aggregation
                     }
                 }).ToList();
 
-                // Wait for all servers — fast ones have already updated the cache by now.
+                // Wait for all servers - fast ones have already updated the cache by now.
                 await Task.WhenAll(serverTasks).ConfigureAwait(false);
 
                 // Remove stale entries (tools from servers that no longer exist / returned nothing).

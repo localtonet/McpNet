@@ -9,6 +9,7 @@
     <Project Path="src/McpNet.Transport.Stdio/McpNet.Transport.Stdio.csproj" />
     <Project Path="src/McpNet.Dashboard/McpNet.Dashboard.csproj" />
     <Project Path="src/McpNet.Host/McpNet.Host.csproj" />
+    <Project Path="samples/McpNet.Standalone.TestApp/McpNet.Standalone.TestApp.csproj" />
     <Project Path="src/McpNet.Cli/McpNet.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">

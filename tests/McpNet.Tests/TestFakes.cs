@@ -77,7 +77,7 @@ namespace McpNet.Tests
         }
     }
 
-    // ─── Stub HttpMessageHandler — returns scripted responses ─────────────────
+    // ─── Stub HttpMessageHandler - returns scripted responses ─────────────────
     internal sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;

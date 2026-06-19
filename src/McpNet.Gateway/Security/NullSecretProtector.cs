@@ -1,7 +1,7 @@
 namespace McpNet.Gateway.Security
 {
     /// <summary>
-    /// Passthrough implementation — no encryption.
+    /// Passthrough implementation - no encryption.
     /// Used when Data Protection is not configured (Dev mode / tests).
     /// </summary>
     public sealed class NullSecretProtector : ISecretProtector

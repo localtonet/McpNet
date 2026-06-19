@@ -1,1 +1,1 @@
-// Removed — see McpNetTests.cs
+// Removed - see McpNetTests.cs

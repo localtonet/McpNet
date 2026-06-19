@@ -24,7 +24,7 @@ namespace McpNet.Dashboard
             this IEndpointRouteBuilder endpoints,
             string pattern = "/api")
         {
-            // Public (no auth) — lets the dashboard show mode before authenticating.
+            // Public (no auth) - lets the dashboard show mode before authenticating.
             endpoints.MapGet(pattern + "/info", (GatewayAuthenticator auth) =>
                 Results.Ok(new { mode = auth.IsDevMode ? "Dev" : "Enterprise", requiresAuth = !auth.IsDevMode }));
 
@@ -292,7 +292,7 @@ namespace McpNet.Dashboard
                 return Results.Accepted("/api/tools/diagnostics", new { message = "Refresh started. Poll /api/tools/diagnostics for results." });
             });
 
-            // ── Tool Inspector — call a tool from the dashboard ───────────────
+            // ── Tool Inspector - call a tool from the dashboard ───────────────
             group.MapPost("/tools/call", async (HttpContext ctx, ToolAggregator aggregator, ServerRegistry registry, IServerRepository repo, CancellationToken ct) =>
             {
                 var body = await ReadJsonAsync<CallToolRequest>(ctx);

@@ -14,7 +14,7 @@ namespace McpNet.Gateway.Dashboard
     /// <c>McpNet.Gateway.wwwroot.catalog.json</c>) plus user-saved custom entries
     /// stored in <c>{dataDirectory}/custom-catalog.json</c>.
     ///
-    /// No HTTP / ASP.NET Core dependency — usable from any host.
+    /// No HTTP / ASP.NET Core dependency - usable from any host.
     /// </summary>
     public sealed class GatewayCatalogService
     {

@@ -46,7 +46,7 @@ namespace McpNet.Cli
             }
             catch
             {
-                // Corrupt config — return empty, don't crash
+                // Corrupt config - return empty, don't crash
                 return new CliConfig();
             }
         }

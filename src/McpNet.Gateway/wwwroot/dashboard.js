@@ -328,6 +328,17 @@ async function loadServers() {
   const data = await api('GET', '/servers');
   servers = data || [];
   renderServers();
+  // Show the last-known per-server health immediately (persisted gateway-side),
+  // so health is visible after a page reload without clicking Ping.
+  applyPersistedHealth();
+}
+
+async function applyPersistedHealth() {
+  const status = await api('GET', '/tools/status');
+  if (!status) return;
+  updateHealthChipsFromDiagnostics(Array.from(status.diagnostics || []));
+  // If a refresh is in flight (e.g. server just added), keep polling to fill chips.
+  if (status.refreshing) pollToolRefresh().catch(() => {});
 }
 
 function renderServers() {
@@ -341,7 +352,7 @@ function renderServers() {
       <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
       <td>${s.hasAuth ? '<span class="chip green">Auth</span>' : '<span class="chip gray plain">None</span>'}</td>
       <td>
-        <span id="health-${s.id}" class="chip gray plain">—</span>
+        <span id="health-${s.id}" class="chip gray plain">-</span>
         <button class="btn ghost sm" onclick="checkHealth('${s.id}')" style="padding:3px 8px;margin-left:4px">Ping</button>
       </td>
       <td>
@@ -365,8 +376,8 @@ async function checkHealth(id) {
   document.getElementById('hm_name').textContent = server ? server.name : id;
   document.getElementById('hm_status').className = 'chip gray plain';
   document.getElementById('hm_status').textContent = 'Checking…';
-  document.getElementById('hm_latency').textContent = '—';
-  document.getElementById('hm_tools').textContent = '—';
+  document.getElementById('hm_latency').textContent = '-';
+  document.getElementById('hm_tools').textContent = '-';
   document.getElementById('hm_log').textContent = 'Connecting to server…';
   openModal('healthModal');
 
@@ -379,13 +390,13 @@ async function checkHealth(id) {
   if (!r) {
     document.getElementById('hm_status').textContent = 'Failed';
     document.getElementById('hm_log').textContent = 'Request failed. Check gateway logs.';
-    if (chipEl) { chipEl.className = 'chip gray plain'; chipEl.textContent = '—'; }
+    if (chipEl) { chipEl.className = 'chip gray plain'; chipEl.textContent = '-'; }
     return;
   }
 
   // Update modal fields
-  document.getElementById('hm_latency').textContent = r.latencyMs != null ? r.latencyMs + ' ms' : '—';
-  document.getElementById('hm_tools').textContent = r.toolCount != null ? r.toolCount + ' tools' : '—';
+  document.getElementById('hm_latency').textContent = r.latencyMs != null ? r.latencyMs + ' ms' : '-';
+  document.getElementById('hm_tools').textContent = r.toolCount != null ? r.toolCount + ' tools' : '-';
 
   if (r.status === 'healthy') {
     document.getElementById('hm_status').className = 'chip green';
@@ -407,7 +418,7 @@ async function checkHealth(id) {
     // Legacy fallback (should not occur after the endpoint update)
     document.getElementById('hm_status').className = 'chip blue plain';
     document.getElementById('hm_status').textContent = 'Stdio';
-    const note = r.note || 'Stdio server — started as subprocess on first tool call.';
+    const note = r.note || 'Stdio server - started as subprocess on first tool call.';
     const cmd = r.command ? '\n\nCommand: ' + r.command : '';
     document.getElementById('hm_log').textContent = note + cmd;
     if (chipEl) { chipEl.className = 'chip blue plain'; chipEl.textContent = 'Local'; }
@@ -474,7 +485,26 @@ async function addServer() {
   };
   if (!body.name) { toast('Name is required', 'danger'); return; }
   const result = await api('POST', '/servers', body);
-  if (result) { closeModal('addServerModal'); await loadServers(); toast('Server added', body.name + ' is now registered.', 'success'); }
+  if (result) {
+    closeModal('addServerModal');
+    await loadServers();
+    toast('Server added', body.name + ' is registered - fetching tools…', 'success');
+    // The gateway auto-refreshes tools on POST /servers; poll and reflect the result
+    // (tools + health) so the user never has to click Ping or Refresh Tools.
+    autoFetchAfterRegister(body.name);
+  }
+}
+
+// Shared post-register flow: poll the server-side refresh, surface per-server result.
+function autoFetchAfterRegister(serverName) {
+  pollToolRefresh().then(({ diags }) => {
+    const d = diags.find(x => x.serverName === serverName);
+    if (d && !d.success) {
+      toast('Tool discovery issue', `${serverName}: ${d.errorMessage || 'no tools returned'}`, 'warning');
+    } else if (d && d.success) {
+      toast('Tools ready', `${serverName} - ${d.toolCount} tool(s) discovered.`, 'success');
+    }
+  }).catch(() => { /* non-fatal */ });
 }
 
 async function deleteServer(id, name) {
@@ -597,7 +627,7 @@ async function installFromCatalog(i) {
   const cmd = isStdio ? [c.command].concat(finalArgs).join(' ') : (c.url || '');
   const envNote = Object.keys(envVars).length > 0
     ? `\n\nEnvironment variables will be set: ${Object.keys(envVars).join(', ')}`
-    : (c.requiresEnv && c.requiresEnv.length > 0 ? `\n\n⚠️ No API keys provided — server may fail to start.` : '');
+    : (c.requiresEnv && c.requiresEnv.length > 0 ? `\n\n⚠️ No API keys provided - server may fail to start.` : '');
   const message = isStdio
     ? `This will register "${c.title}" and run a local process:\n\n${cmd}${envNote}\n\nOnly install commands you trust. Requires Node/npx on the host.`
     : `This will register "${c.title}" and connect to:\n\n${cmd}`;
@@ -615,9 +645,11 @@ async function installFromCatalog(i) {
   };
   const result = await api('POST', '/servers', body);
   if (result) {
-    toast('Installed', (c.title || c.name) + ' is now registered.', 'success');
+    toast('Installed', (c.title || c.name) + ' is registered - fetching tools…', 'success');
     await loadServers();
     renderCatalog();
+    // Auto-fetch tools/health so the catalog entry is usable without a manual Ping.
+    autoFetchAfterRegister(c.name);
   }
 }
 
@@ -683,30 +715,42 @@ async function removeCustomCatalog(name) {
   toast('Removed', 'Entry removed from catalog.', 'info');
 }
 
+// Polls /api/tools/status until the gateway-side refresh finishes (or times out),
+// loading tools incrementally and keeping the server health chips in sync.
+// Used by manual "Refresh Tools" AND automatically after a server is added/installed,
+// so the user never has to click Ping to see tools/health.
+async function pollToolRefresh({ timeoutMs = 130000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let status = null;
+  let lastToolCount = -1;
+  // Brief initial delay so the fire-and-forget server refresh can flip refreshing=true.
+  await new Promise(r => setTimeout(r, 600));
+  while (Date.now() < deadline) {
+    status = await api('GET', '/tools/status');
+    if (!status) break;
+    // Incrementally load tools as fast servers finish - don't wait for slow ones.
+    if (status.totalTools !== lastToolCount) {
+      lastToolCount = status.totalTools;
+      await loadTools();
+    }
+    // Reflect persisted per-server health as soon as diagnostics arrive.
+    if (status.diagnostics) updateHealthChipsFromDiagnostics(Array.from(status.diagnostics));
+    if (!status.refreshing) break;
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  const diags = (status && status.diagnostics) ? Array.from(status.diagnostics) : [];
+  await loadTools();
+  if (!servers.length) { const sv = await api('GET', '/servers'); if (sv) { servers = sv; renderServers(); } }
+  updateHealthChipsFromDiagnostics(diags);
+  return { status, diags };
+}
+
 async function refreshAll() {
   toast('Refreshing tools…', 'Connecting to upstream servers. Stdio servers may take up to 60s on first run.', 'info');
   const result = await api('POST', '/tools/refresh');
   if (!result) { toast('Refresh failed', 'Could not reach gateway.', 'error'); return; }
 
-  // Poll /api/tools/status.
-  // Fast servers update the cache immediately — load tools as soon as any appear.
-  // Keep polling until refreshing=false (all servers done) or 130s timeout.
-  const deadline = Date.now() + 130000;
-  let status = null;
-  let lastToolCount = 0;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 2000));
-    status = await api('GET', '/tools/status');
-    if (!status) break;
-    // Incrementally load tools as fast servers finish — don't wait for slow ones.
-    if (status.totalTools > lastToolCount) {
-      lastToolCount = status.totalTools;
-      await loadTools();
-    }
-    if (!status.refreshing) break;
-  }
-
-  const diags = (status && status.diagnostics) ? Array.from(status.diagnostics) : [];
+  const { status, diags } = await pollToolRefresh();
   const warnings = diags.filter(d => d.status && d.status !== 'ok');
   if (warnings.length > 0) {
     toast('Tools refreshed with warnings', `${warnings.length} server(s) reported issues. ${status.totalTools} tools total.`, 'warning');
@@ -715,10 +759,6 @@ async function refreshAll() {
   } else {
     toast('Tools refreshed', 'Refresh complete.', 'success');
   }
-
-  // Final load to ensure we're in sync, then update health chips.
-  await loadTools();
-  updateHealthChipsFromDiagnostics(diags);
 }
 
 function updateHealthChipsFromDiagnostics(diags) {
@@ -826,7 +866,7 @@ function renderTools() {
 function openToolTest(fullName) {
   document.getElementById('tt_name').textContent = fullName;
   document.getElementById('tt_args').value = '{}';
-  document.getElementById('tt_result').textContent = '—';
+  document.getElementById('tt_result').textContent = '-';
   document.getElementById('tt_status').textContent = '';
   openModal('toolTestModal');
 }
@@ -1082,16 +1122,15 @@ async function openClientPerms(id) {
     ? '<div class="form-check-list">' + servers.map(s => `
         <label class="form-check">
           <input type="checkbox" class="cp_server" value="${s.id}" ${allowedServerIds.has(s.id) ? 'checked' : ''} />
-          <span class="fc-main"><strong>${esc(s.name)}</strong></span>
-          <span class="fc-sub"><span class="chip blue plain" style="font-size:11px">${esc(s.transportType)}</span></span>
-          <input type="number" class="fc-rate cp_server_rate" data-sid="${s.id}" min="0" value="${serverRateLimits.get(s.id) || 0}" placeholder="∞" title="Rate limit for this server (calls/min). 0 = use global limit." />
+          <span class="fc-main"><strong>${esc(s.name)}</strong> <span class="chip blue plain" style="margin-left:6px;font-size:11px">${esc(s.transportType)}</span></span>
+          <input type="number" class="fc-rate cp_server_rate" data-sid="${s.id}" min="0" value="${serverRateLimits.get(s.id) || 0}" placeholder="0" title="Rate limit for this server (calls/min). 0 = use global limit." />
         </label>`).join('') +
       '<div class="fc-rate-hint">calls/min per server &nbsp;·&nbsp; 0 = use global limit</div></div>'
     : '<div style="padding:12px;color:var(--muted)">No servers registered.</div>';
 
   const groupsHtml = groups.length
     ? '<div class="form-check-list">' + groups.map(g => `
-        <label class="form-check" style="grid-template-columns:18px 1fr auto">
+        <label class="form-check">
           <input type="checkbox" class="cp_group" value="${g.id}" ${allowedGroupIds.has(g.id) ? 'checked' : ''} />
           <span class="fc-main"><strong>${esc(g.name)}</strong></span>
           <span class="fc-sub">${(g.toolNames||[]).length} tools</span>
@@ -1099,13 +1138,13 @@ async function openClientPerms(id) {
     : '<div style="padding:12px;color:var(--muted)">No groups defined.</div>';
 
   document.getElementById('cpModal_body').innerHTML = `
-    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Leave all unchecked to allow access to everything (no restriction).</p>
-    <div style="margin-bottom:16px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text-dim)">Servers</div>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">Leave all unchecked to allow access to everything (no restriction).</p>
+    <div class="perm-section">
+      <div class="perm-section-title">Servers</div>
       ${serversHtml}
     </div>
-    <div>
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text-dim)">Tool Groups</div>
+    <div class="perm-section">
+      <div class="perm-section-title">Tool Groups</div>
       ${groupsHtml}
     </div>`;
 }

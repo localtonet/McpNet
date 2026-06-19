@@ -2,7 +2,7 @@
 
 A self-contained MCP Gateway that can be embedded in any .NET 8 application with **no ASP.NET Core dependency**.
 
-Uses `System.Net.HttpListener` — Kestrel and `Microsoft.AspNetCore` are **not required**.
+Uses `System.Net.HttpListener` - Kestrel and `Microsoft.AspNetCore` are **not required**.
 
 ---
 

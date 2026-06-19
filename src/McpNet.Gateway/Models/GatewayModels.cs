@@ -70,7 +70,7 @@ namespace McpNet.Gateway.Models
         public List<Guid> AllowedGroupIds { get; set; } = new List<Guid>();
         public bool Enabled { get; set; } = true;
         public int RateLimitPerMinute { get; set; } = 0;
-        // Per-server overrides — takes precedence over RateLimitPerMinute for matching server.
+        // Per-server overrides - takes precedence over RateLimitPerMinute for matching server.
         public List<ServerRateLimit> ServerRateLimits { get; set; } = new List<ServerRateLimit>();
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

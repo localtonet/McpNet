@@ -415,7 +415,7 @@
     {
       "name": "mcp-server-time-py",
       "title": "Time (Python)",
-      "description": "Current time and timezone conversion — Python variant.",
+      "description": "Current time and timezone conversion - Python variant.",
       "category": "Utilities",
       "transport": "Stdio",
       "command": "uvx",
@@ -750,7 +750,7 @@
     {
       "name": "browsertools",
       "title": "BrowserTools",
-      "description": "AI browser monitoring — console logs, network traffic, DOM inspection, screenshots, and accessibility/SEO/performance audits. Requires Chrome extension.",
+      "description": "AI browser monitoring - console logs, network traffic, DOM inspection, screenshots, and accessibility/SEO/performance audits. Requires Chrome extension.",
       "category": "Browser",
       "transport": "Stdio",
       "command": "npx",

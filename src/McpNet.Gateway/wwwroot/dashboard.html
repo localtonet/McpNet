@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>McpNet Gateway Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%236366f1'/%3E%3Cstop%20offset='1'%20stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='32'%20height='32'%20rx='9'%20fill='url(%23g)'/%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='2.2'%20stroke-linecap='round'%3E%3Cpath%20d='M16%2015V7'/%3E%3Cpath%20d='m16%2017-6%205'/%3E%3Cpath%20d='m16%2017%206%205'/%3E%3C/g%3E%3Cg%20fill='%23fff'%3E%3Ccircle%20cx='16'%20cy='16'%20r='3.2'/%3E%3Ccircle%20cx='16'%20cy='6'%20r='2.6'/%3E%3Ccircle%20cx='9.5'%20cy='23'%20r='2.6'/%3E%3Ccircle%20cx='22.5'%20cy='23'%20r='2.6'/%3E%3C/g%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/dashboard.css" />
@@ -320,7 +321,17 @@
   <!-- ── Sidebar ──────────────────────────────────────── -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="logo">&#9670;</div>
+      <div class="logo" title="McpNet Gateway">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 11V5.6" opacity=".9"/>
+          <path d="m12 12.6-4.8 4" opacity=".55"/>
+          <path d="m12 12.6 4.8 4" opacity=".55"/>
+          <circle cx="12" cy="12" r="2.5" fill="#fff" stroke="none"/>
+          <circle cx="12" cy="4" r="2.1"/>
+          <circle cx="5.4" cy="18.4" r="2.1"/>
+          <circle cx="18.6" cy="18.4" r="2.1"/>
+        </svg>
+      </div>
       <div class="brand-text">
         <strong>McpNet</strong>
         <span>Gateway Console</span>
@@ -396,22 +407,22 @@
     <div class="metrics-grid">
       <div class="metric-card">
         <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="6" rx="2"/><rect x="2" y="13" width="20" height="6" rx="2"/><path d="M6 6h.01M6 16h.01"/></svg></div>
-        <div class="metric-value" id="mServers">—</div>
+        <div class="metric-value" id="mServers">-</div>
         <div class="metric-label">Servers</div>
       </div>
       <div class="metric-card">
         <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"/></svg></div>
-        <div class="metric-value" id="mTools">—</div>
+        <div class="metric-value" id="mTools">-</div>
         <div class="metric-label">Tools (<span id="mToolsEnabled">0</span> enabled)</div>
       </div>
       <div class="metric-card">
         <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/></svg></div>
-        <div class="metric-value" id="mGroups">—</div>
+        <div class="metric-value" id="mGroups">-</div>
         <div class="metric-label">Tool Groups</div>
       </div>
       <div class="metric-card">
         <div class="mc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
-        <div class="metric-value" id="mClients">—</div>
+        <div class="metric-value" id="mClients">-</div>
         <div class="metric-label">Clients</div>
       </div>
     </div>
@@ -543,10 +554,10 @@
   <div id="tab-settings" class="tab">
     <div class="toolbar"><h2>Gateway Information</h2></div>
     <div class="metrics-grid">
-      <div class="metric-card"><div class="metric-value" id="setMode">—</div><div class="metric-label">Mode</div></div>
-      <div class="metric-card"><div class="metric-value" id="setServers">—</div><div class="metric-label">Servers</div></div>
-      <div class="metric-card"><div class="metric-value" id="setTools">—</div><div class="metric-label">Tools</div></div>
-      <div class="metric-card"><div class="metric-value" id="setClients">—</div><div class="metric-label">Clients</div></div>
+      <div class="metric-card"><div class="metric-value" id="setMode">-</div><div class="metric-label">Mode</div></div>
+      <div class="metric-card"><div class="metric-value" id="setServers">-</div><div class="metric-label">Servers</div></div>
+      <div class="metric-card"><div class="metric-value" id="setTools">-</div><div class="metric-label">Tools</div></div>
+      <div class="metric-card"><div class="metric-value" id="setClients">-</div><div class="metric-label">Clients</div></div>
     </div>
     <div class="toolbar" style="margin-top:24px"><h2>Backup &amp; Restore</h2></div>
     <div class="card" style="padding:20px">
@@ -573,8 +584,10 @@
 <div class="modal-backdrop" id="addServerModal">
   <div class="modal">
     <h3>Add Upstream Server</h3>
-    <label>Name *</label>
+    <p class="modal-desc">Register an MCP server. Its tools are fetched automatically once added.</p>
+    <label>Name <span class="req">*</span></label>
     <input id="s_name" placeholder="my-server" />
+    <span class="field-hint">A unique label used to namespace this server's tools.</span>
     <label>Transport Type</label>
     <select id="s_transport" onchange="updateServerForm()">
       <option value="StreamableHttp">Streamable HTTP</option>
@@ -582,32 +595,32 @@
       <option value="Stdio">Stdio / subprocess</option>
     </select>
     <div id="s_httpFields">
-      <label>Server URL *</label>
+      <label>Server URL <span class="req">*</span></label>
       <input id="s_url" placeholder="https://my-mcp-server/mcp" />
-      <label>Bearer Token (optional)</label>
+      <label>Bearer Token <span class="field-opt">(optional)</span></label>
       <input id="s_token" type="password" placeholder="sk-…" />
     </div>
     <div id="s_stdioFields" style="display:none">
-      <label>Command *</label>
+      <label>Command <span class="req">*</span></label>
       <input id="s_command" placeholder="npx my-mcp-server" />
-      <label>Args (one per line)</label>
+      <label>Args <span class="field-opt">(one per line)</span></label>
       <textarea id="s_args" placeholder="--arg1&#10;value1"></textarea>
-      <label>Working Directory (optional)</label>
+      <label>Working Directory <span class="field-opt">(optional)</span></label>
       <input id="s_workdir" placeholder="/path/to/workdir" />
     </div>
-    <label>Custom Headers (one per line, key: value)</label>
+    <label>Custom Headers <span class="field-opt">(one per line, key: value)</span></label>
     <textarea id="s_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
-    <details style="margin-top:10px">
-      <summary style="cursor:pointer;color:var(--accent-hover);font-size:13px;font-weight:600">OAuth 2.0 (client credentials)</summary>
-      <div style="margin-top:10px">
-        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="s_oauth_enabled" style="width:16px;height:16px;accent-color:var(--accent)" /> Enable OAuth</label>
+    <details>
+      <summary>OAuth 2.0 (client credentials)</summary>
+      <div>
+        <label class="check-inline"><input type="checkbox" id="s_oauth_enabled" /> Enable OAuth</label>
         <label>Token URL</label>
         <input id="s_oauth_url" placeholder="https://auth.example.com/oauth/token" />
         <label>Client ID</label>
         <input id="s_oauth_id" placeholder="client-id" />
         <label>Client Secret</label>
         <input id="s_oauth_secret" type="password" placeholder="client-secret" />
-        <label>Scopes (space separated)</label>
+        <label>Scopes <span class="field-opt">(space separated)</span></label>
         <input id="s_oauth_scopes" placeholder="read write" />
       </div>
     </details>
@@ -622,9 +635,10 @@
 <div class="modal-backdrop" id="addGroupModal">
   <div class="modal">
     <h3>New Tool Group</h3>
-    <label>Name *</label>
+    <p class="modal-desc">Bundle related tools so clients can be granted access by group.</p>
+    <label>Name <span class="req">*</span></label>
     <input id="g_name" placeholder="my-group" />
-    <label>Description</label>
+    <label>Description <span class="field-opt">(optional)</span></label>
     <input id="g_desc" placeholder="Optional description" />
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeModal('addGroupModal')">Cancel</button>
@@ -637,7 +651,8 @@
 <div class="modal-backdrop" id="addClientModal">
   <div class="modal">
     <h3>New MCP Client</h3>
-    <label>Name *</label>
+    <p class="modal-desc">Creates an access token for a client app (enterprise mode).</p>
+    <label>Name <span class="req">*</span></label>
     <input id="c_name" placeholder="my-client" />
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeModal('addClientModal')">Cancel</button>
@@ -653,7 +668,7 @@
       <span class="modal-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
       Client Token
     </h3>
-    <p class="modal-desc">Copy this token now — it will not be shown again.</p>
+    <p class="modal-desc">Copy this token now - it will not be shown again.</p>
     <code id="tokenDisplay" style="display:block;word-break:break-all;padding:13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;"></code>
     <div class="modal-footer">
       <button class="btn ghost" onclick="copyToken()">Copy</button>
@@ -688,8 +703,8 @@
     </h3>
     <p class="modal-desc" id="hm_name" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px"></p>
     <div class="health-grid">
-      <div class="health-stat"><div class="hs-val" id="hm_latency">—</div><div class="hs-lbl">Latency</div></div>
-      <div class="health-stat"><div class="hs-val" id="hm_tools">—</div><div class="hs-lbl">Tools</div></div>
+      <div class="health-stat"><div class="hs-val" id="hm_latency">-</div><div class="hs-lbl">Latency</div></div>
+      <div class="health-stat"><div class="hs-val" id="hm_tools">-</div><div class="hs-lbl">Tools</div></div>
     </div>
     <label>Details</label>
     <pre id="hm_log" style="max-height:220px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;margin-top:6px">…</pre>
@@ -717,7 +732,7 @@
 <div class="modal-backdrop" id="envVarModal">
   <div class="modal" style="max-width:500px">
     <h3>API Keys Required</h3>
-    <p class="modal-desc">This server needs API keys to function. Enter them below — they will be passed as environment variables to the server process.</p>
+    <p class="modal-desc">This server needs API keys to function. Enter them below - they will be passed as environment variables to the server process.</p>
     <div id="envModal_body"></div>
     <p class="modal-desc" id="envModal_note" style="margin-top:10px;font-size:12px;color:var(--muted)"></p>
     <div class="modal-footer">
@@ -730,15 +745,16 @@
 <div class="modal-backdrop" id="addCatalogModal">
   <div class="modal" style="max-width:520px">
     <h3>Add to Catalog</h3>
-    <p class="modal-desc">Add a custom MCP server to the catalog. The command will be run as a local process.</p>
-    <label>Name <span style="color:var(--danger)">*</span></label>
-    <input id="ac_title" class="input" placeholder="My MCP Server" style="width:100%;box-sizing:border-box" />
-    <label style="margin-top:10px;display:block">Command <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:var(--muted)">e.g. npx -y @myorg/my-mcp-server</span></label>
-    <input id="ac_command" class="input" placeholder="npx -y @myorg/my-mcp-server" style="width:100%;box-sizing:border-box;font-family:var(--mono);font-size:13px" />
-    <label style="margin-top:10px;display:block">Description <span style="font-size:11px;color:var(--muted)">(optional)</span></label>
-    <input id="ac_desc" class="input" placeholder="What does it do?" style="width:100%;box-sizing:border-box" />
-    <label style="margin-top:10px;display:block">Category</label>
-    <select id="ac_category" class="input" style="width:100%;box-sizing:border-box">
+    <p class="modal-desc">Add a custom MCP server to the catalog. The command runs as a local process.</p>
+    <label>Name <span class="req">*</span></label>
+    <input id="ac_title" placeholder="My MCP Server" />
+    <label>Command <span class="req">*</span></label>
+    <input id="ac_command" placeholder="npx -y @myorg/my-mcp-server" style="font-family:var(--mono);font-size:13px" />
+    <span class="field-hint">A shell command (e.g. <code>npx -y @org/server</code>) or an <code>https://</code> URL.</span>
+    <label>Description <span class="field-opt">(optional)</span></label>
+    <input id="ac_desc" placeholder="What does it do?" />
+    <label>Category</label>
+    <select id="ac_category">
       <option>Development</option>
       <option>AI / ML</option>
       <option>Database</option>
@@ -764,7 +780,7 @@
 <!-- Tool Inspector Modal -->
 <div class="modal-backdrop" id="toolTestModal">
   <div class="modal" style="max-width:680px">
-    <h3>Tool Inspector — <span id="tt_name" style="color:var(--accent-hover);font-family:var(--mono);font-size:14px"></span></h3>
+    <h3>Tool Inspector - <span id="tt_name" style="color:var(--accent-hover);font-family:var(--mono);font-size:14px"></span></h3>
     <p class="modal-desc">Call this tool with JSON arguments and inspect the live result.</p>
     <label>Arguments (JSON)</label>
     <textarea id="tt_args" style="min-height:120px;font-family:var(--mono);font-size:12.5px" placeholder='{\n  "param": "value"\n}'>{}</textarea>
@@ -774,7 +790,7 @@
       <span id="tt_status" style="font-size:12px;color:var(--muted);align-self:center"></span>
     </div>
     <label style="margin-top:14px">Result</label>
-    <pre id="tt_result" style="max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-word;color:var(--text-dim)">—</pre>
+    <pre id="tt_result" style="max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-word;color:var(--text-dim)">-</pre>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeModal('toolTestModal')">Close</button>
     </div>
@@ -786,7 +802,7 @@
   <div class="modal">
     <h3>Edit Server</h3>
     <p class="modal-desc">Update the server configuration. Leave token blank to keep it unchanged.</p>
-    <label>Name *</label>
+    <label>Name <span class="req">*</span></label>
     <input id="es_name" placeholder="my-server" />
     <label>Transport Type</label>
     <select id="es_transport" onchange="updateEditServerForm()">
@@ -795,32 +811,32 @@
       <option value="Stdio">Stdio / subprocess</option>
     </select>
     <div id="es_httpFields">
-      <label>Server URL *</label>
+      <label>Server URL <span class="req">*</span></label>
       <input id="es_url" placeholder="https://my-mcp-server/mcp" />
-      <label>Bearer Token (leave blank to keep unchanged)</label>
+      <label>Bearer Token <span class="field-opt">(leave blank to keep unchanged)</span></label>
       <input id="es_token" type="password" placeholder="sk-…" />
     </div>
     <div id="es_stdioFields" style="display:none">
-      <label>Command *</label>
+      <label>Command <span class="req">*</span></label>
       <input id="es_command" placeholder="npx my-mcp-server" />
-      <label>Args (one per line)</label>
+      <label>Args <span class="field-opt">(one per line)</span></label>
       <textarea id="es_args" placeholder="--arg1&#10;value1"></textarea>
-      <label>Working Directory (optional)</label>
+      <label>Working Directory <span class="field-opt">(optional)</span></label>
       <input id="es_workdir" placeholder="/path/to/workdir" />
     </div>
-    <label>Custom Headers (one per line, key: value)</label>
+    <label>Custom Headers <span class="field-opt">(one per line, key: value)</span></label>
     <textarea id="es_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
-    <details style="margin-top:10px">
-      <summary style="cursor:pointer;color:var(--accent-hover);font-size:13px;font-weight:600">OAuth 2.0 (client credentials)</summary>
-      <div style="margin-top:10px">
-        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="es_oauth_enabled" style="width:16px;height:16px;accent-color:var(--accent)" /> Enable OAuth</label>
+    <details>
+      <summary>OAuth 2.0 (client credentials)</summary>
+      <div>
+        <label class="check-inline"><input type="checkbox" id="es_oauth_enabled" /> Enable OAuth</label>
         <label>Token URL</label>
         <input id="es_oauth_url" placeholder="https://auth.example.com/oauth/token" />
         <label>Client ID</label>
         <input id="es_oauth_id" placeholder="client-id" />
-        <label>Client Secret (leave blank to keep)</label>
+        <label>Client Secret <span class="field-opt">(leave blank to keep)</span></label>
         <input id="es_oauth_secret" type="password" placeholder="client-secret" />
-        <label>Scopes (space separated)</label>
+        <label>Scopes <span class="field-opt">(space separated)</span></label>
         <input id="es_oauth_scopes" placeholder="read write" />
       </div>
     </details>
@@ -846,22 +862,22 @@
 <!-- Client Permissions Modal -->
 <div class="modal-backdrop" id="clientPermsModal">
   <div class="modal" style="max-width:640px">
-    <h3>Permissions — <span id="cpModal_clientName" style="color:var(--accent-hover)"></span></h3>
+    <h3>Permissions - <span id="cpModal_clientName" style="color:var(--accent-hover)"></span></h3>
     <p class="modal-desc">Configure which servers and groups this client can access.</p>
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">Client Enabled</span>
-      <label class="toggle-switch" style="margin-left:auto">
+    <div class="pref-row">
+      <span class="pref-label">Client Enabled<span class="pref-hint">Turn off to revoke access without deleting.</span></span>
+      <label class="toggle-switch">
         <input type="checkbox" id="cpModal_enabled" />
         <span class="toggle-slider"></span>
       </label>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">Rate Limit (req/min)</span>
-      <input type="number" id="cpModal_rate" min="0" style="margin-left:auto;width:110px;background:var(--bg-elev);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:13px" placeholder="0 = unlimited" />
+    <div class="pref-row">
+      <span class="pref-label">Rate Limit<span class="pref-hint">Requests per minute · 0 = unlimited</span></span>
+      <input type="number" id="cpModal_rate" min="0" placeholder="0" />
     </div>
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">Access Token</span>
-      <button class="btn ghost sm" style="margin-left:auto" onclick="regenerateToken()">Regenerate</button>
+    <div class="pref-row">
+      <span class="pref-label">Access Token<span class="pref-hint">Issues a new token and revokes the old one.</span></span>
+      <button class="btn ghost sm" onclick="regenerateToken()">Regenerate</button>
     </div>
     <div id="cpModal_body" style="max-height:400px;overflow-y:auto"></div>
     <div class="modal-footer">
@@ -943,7 +959,7 @@
   };
   const TOAST_TITLES = { success: 'Success', danger: 'Error', warning: 'Warning', info: 'Info' };
 
-  // toast(title, msg, type)  — or legacy toast(msg, type)
+  // toast(title, msg, type)  - or legacy toast(msg, type)
   function toast(a, b, c) {
     let title, msg, type;
     if (c !== undefined || (b !== undefined && !['success','danger','warning','info'].includes(b))) {
@@ -1070,7 +1086,7 @@
         <td><code>${esc(s.url || s.stdioCommand || '')}</code></td>
         <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
         <td>${s.hasAuth ? '<span class="chip green">Auth</span>' : '<span class="chip gray plain">None</span>'}</td>
-        <td><span id="health-${s.id}" class="chip gray plain">—</span>
+        <td><span id="health-${s.id}" class="chip gray plain">-</span>
           <button class="btn ghost sm" title="Check health" onclick="checkHealth('${s.id}')" style="padding:3px 8px;margin-left:4px">Ping</button>
         </td>
         <td>
@@ -1157,7 +1173,7 @@
     const r = await api('GET', '/servers/' + id + '/health');
     const span = document.getElementById('health-' + id);
     if (!span) return;
-    if (!r) { span.className = 'chip gray plain'; span.textContent = '—'; return; }
+    if (!r) { span.className = 'chip gray plain'; span.textContent = '-'; return; }
     if (r.status === 'healthy') {
       span.className = 'chip green';
       span.textContent = `${r.latencyMs}ms · ${r.toolCount} tools`;
@@ -1303,7 +1319,7 @@
   function openToolTest(fullName) {
     document.getElementById('tt_name').textContent = fullName;
     document.getElementById('tt_args').value = '{}';
-    document.getElementById('tt_result').textContent = '—';
+    document.getElementById('tt_result').textContent = '-';
     document.getElementById('tt_status').textContent = '';
     openModal('toolTestModal');
   }

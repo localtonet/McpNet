@@ -436,7 +436,7 @@ namespace McpNet.Gateway.Upstream
             if (_stdioOut is null)
                 throw new InvalidOperationException("Stdio output stream is not available.");
 
-            // Read one NDJSON line. Skip blank lines — the server may emit a bare \n
+            // Read one NDJSON line. Skip blank lines - the server may emit a bare \n
             // as a keep-alive or separator; treating them as EOF broke tool discovery.
             // Only return null on true EOF (read == 0) or cancellation.
             var bytes = new List<byte>(4096);
@@ -453,7 +453,7 @@ namespace McpNet.Gateway.Upstream
                     try { read = await _stdioOut.ReadAsync(one, 0, 1, ct).ConfigureAwait(false); }
                     catch (OperationCanceledException) { return null; }
 
-                    if (read == 0) return null; // true EOF — stream closed
+                    if (read == 0) return null; // true EOF - stream closed
 
                     var b = one[0];
                     if (b == (byte)'\n') break;
@@ -464,7 +464,7 @@ namespace McpNet.Gateway.Upstream
                 if (bytes.Count > 0 && bytes[bytes.Count - 1] == (byte)'\r')
                     bytes.RemoveAt(bytes.Count - 1);
 
-                if (bytes.Count == 0) continue; // blank line — skip and read next
+                if (bytes.Count == 0) continue; // blank line - skip and read next
 
                 return Encoding.UTF8.GetString(bytes.ToArray());
             }

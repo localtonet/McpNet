@@ -8,7 +8,7 @@ namespace McpNet.Gateway.Security
     ///
     /// Default implementation: <see cref="NullSecretProtector"/> (passthrough).
     /// Production implementation: DataProtectionSecretProtector in McpNet.Host
-    /// (uses ASP.NET Core Data Protection — DPAPI on Windows, file-based on Linux/macOS).
+    /// (uses ASP.NET Core Data Protection - DPAPI on Windows, file-based on Linux/macOS).
     /// </summary>
     public interface ISecretProtector
     {

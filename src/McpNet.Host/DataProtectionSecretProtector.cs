@@ -32,7 +32,7 @@ namespace McpNet.Host
         {
             if (string.IsNullOrEmpty(plaintext)) return plaintext;
 
-            // Already encrypted — don't double-encrypt
+            // Already encrypted - don't double-encrypt
             if (plaintext.StartsWith(Prefix, StringComparison.Ordinal)) return plaintext;
 
             return Prefix + _dp.Protect(plaintext);
@@ -43,7 +43,7 @@ namespace McpNet.Host
         {
             if (string.IsNullOrEmpty(value)) return value;
 
-            // Plaintext (legacy / never encrypted) — return as-is
+            // Plaintext (legacy / never encrypted) - return as-is
             if (!value.StartsWith(Prefix, StringComparison.Ordinal)) return value;
 
             try

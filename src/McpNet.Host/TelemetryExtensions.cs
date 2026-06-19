@@ -9,7 +9,7 @@ using McpNet.Gateway.Observability;
 namespace McpNet.Host
 {
     /// <summary>
-    /// Optional OpenTelemetry wiring. Disabled by default — the gateway's built-in audit
+    /// Optional OpenTelemetry wiring. Disabled by default - the gateway's built-in audit
     /// log is the default lightweight observability. Enable by setting
     /// <c>McpGateway:Telemetry:Enabled = true</c>.
     /// </summary>
