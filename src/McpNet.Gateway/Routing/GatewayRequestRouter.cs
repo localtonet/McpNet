@@ -156,7 +156,7 @@ namespace McpNet.Gateway.Routing
                 ?? throw new InvalidOperationException($"Server for tool '{p.Name}' not found");
 
             // Rate limiting: per-server override takes precedence over global limit.
-            // Uses an in-memory sliding window (GatewayRateLimiter) — O(calls-in-window) per check,
+            // Uses an in-memory sliding window (GatewayRateLimiter) - O(calls-in-window) per check,
             // no disk I/O required.
             if (client != null && _rateLimiter != null)
             {

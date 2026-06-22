@@ -46,6 +46,12 @@ namespace McpNet.Gateway.Models
         /// with exponential back-off (2 s → 4 s → … → 60 s, up to 10 attempts).
         /// </summary>
         public bool AutoRestart { get; set; } = true;
+        /// <summary>
+        /// When true the server is quarantined - it will not connect or expose tools until
+        /// approved via POST /api/servers/{id}/approve. Newly registered servers are
+        /// quarantined by default to protect against Tool Poisoning Attacks.
+        /// </summary>
+        public bool Quarantined { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }

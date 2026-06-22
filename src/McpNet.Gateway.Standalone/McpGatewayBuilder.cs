@@ -75,6 +75,8 @@ namespace McpNet.Gateway.Standalone
             services.AddSingleton<McpNet.Gateway.Notifications.SseConnectionManager>();
             // Feature 5: per-tool response cache.
             services.AddSingleton<McpNet.Gateway.Routing.ToolResponseCache>();
+            // BM25 tool-search metrics.
+            services.AddSingleton<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
             services.AddSingleton<GatewayRequestRouter>(sp =>
                 new GatewayRequestRouter(
                     sp.GetRequiredService<ToolAggregator>(),

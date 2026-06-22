@@ -32,18 +32,20 @@
 15. [Server Health Checks](#server-health-checks)
 16. [Audit Log](#audit-log)
 17. [MCP Catalog](#mcp-catalog)
-18. [Web Dashboard](#web-dashboard)
-19. [Management REST API](#management-rest-api)
-20. [Management CLI - `mcpnet`](#management-cli--mcpnet)
-21. [Meta-Tools (gateway self-management via MCP)](#meta-tools-gateway-self-management-via-mcp)
-22. [Secrets at Rest](#secrets-at-rest)
-23. [Persistence Backends](#persistence-backends)
-24. [OpenTelemetry](#opentelemetry)
-25. [Session Management](#session-management)
-26. [Docker](#docker)
-27. [Import / Export](#import--export)
-28. [Testing](#testing)
-29. [Security Notes](#security-notes)
+18. [Security Quarantine](#security-quarantine)
+19. [BM25 Semantic Tool Search](#bm25-semantic-tool-search)
+20. [Web Dashboard](#web-dashboard)
+21. [Management REST API](#management-rest-api)
+22. [Management CLI - `mcpnet`](#management-cli--mcpnet)
+23. [Meta-Tools (gateway self-management via MCP)](#meta-tools-gateway-self-management-via-mcp)
+24. [Secrets at Rest](#secrets-at-rest)
+25. [Persistence Backends](#persistence-backends)
+26. [OpenTelemetry](#opentelemetry)
+27. [Session Management](#session-management)
+28. [Docker](#docker)
+29. [Import / Export](#import--export)
+30. [Testing](#testing)
+31. [Security Notes](#security-notes)
 
 ---
 
@@ -55,16 +57,16 @@ McpNet Gateway sits between your AI agents (Claude, Cursor, any MCP client) and 
 AI Agent (MCP client)
         │  Bearer token
         ▼
- ┌─────────────────────────────────────┐
+ ┌------------------─┐
  │          McpNet Gateway             │
- │  ┌──────────────────────────────┐   │
+ │  ┌---------------┐   │
  │  │  Auth · Rate Limit · Audit   │   │
- │  └──────────────┬───────────────┘   │
- │  ┌──────────────▼───────────────┐   │
+ │  └-------┬-------─┘   │
+ │  ┌-------▼-------─┐   │
  │  │      Tool Aggregator         │   │
  │  │  (parallel refresh cache)    │   │
- │  └──┬──────────┬──────────┬─────┘   │
- └─────│──────────│──────────│─────────┘
+ │  └-┬-----┬-----┬--─┘   │
+ └--─│-----│-----│----─┘
        │          │          │
        ▼          ▼          ▼
   Server A    Server B    Server C
@@ -85,15 +87,15 @@ AI Agent (MCP client)
 
 ```
 src/
-├── McpNet.Core                  Protocol models, JSON-RPC, McpJsonOptions
-├── McpNet.Gateway               Routing, aggregation, upstream clients, OAuth, telemetry
-├── McpNet.Gateway.Persistence   EF Core repositories (SQLite / PostgreSQL)
-├── McpNet.Transport.AspNetCore  ASP.NET Core MCP transport middleware
-├── McpNet.Transport.Http        Streamable-HTTP & SSE upstream client
-├── McpNet.Transport.Stdio       Stdio (child-process) upstream client
-├── McpNet.Dashboard             Web dashboard + REST management API (embedded resources)
-├── McpNet.Host                  Composition root - entry point
-└── McpNet.Cli                   `mcpnet` management CLI
+├- McpNet.Core                  Protocol models, JSON-RPC, McpJsonOptions
+├- McpNet.Gateway               Routing, aggregation, upstream clients, OAuth, telemetry
+├- McpNet.Gateway.Persistence   EF Core repositories (SQLite / PostgreSQL)
+├- McpNet.Transport.AspNetCore  ASP.NET Core MCP transport middleware
+├- McpNet.Transport.Http        Streamable-HTTP & SSE upstream client
+├- McpNet.Transport.Stdio       Stdio (child-process) upstream client
+├- McpNet.Dashboard             Web dashboard + REST management API (embedded resources)
+├- McpNet.Host                  Composition root - entry point
+└- McpNet.Cli                   `mcpnet` management CLI
 ```
 
 ---
@@ -435,9 +437,9 @@ bob__send_email
 AI Agent (Claude)
       │  one MCP connection
       ▼
-┌──────────────────────┐
+┌-----------┐
 │   Gateway C          │  ← AI sees this only; tool names prefixed by C
-└───────┬──────┬───────┘
+└---─┬---┬---─┘
         │      │  upstream MCP calls (original tool names, no prefix)
         ▼      ▼
    Gateway A  Gateway B
@@ -613,6 +615,147 @@ The catalog is served from `/api/catalog` and searched via `/api/catalog/search`
 
 ---
 
+## Security Quarantine
+
+The Security Quarantine feature protects against **Tool Poisoning Attacks** — a class of prompt-injection attack where a malicious MCP server injects hidden instructions inside tool descriptions to hijack the AI agent's behavior.
+
+### How it works
+
+Every server registered via the REST API (`POST /api/servers`) is placed in **quarantine by default** and does not connect or expose tools until explicitly approved by an administrator:
+
+```
+POST /api/servers           →  server created, Quarantined = true
+                                → tools NOT refreshed, NOT visible to agents
+
+POST /api/servers/{id}/approve  → Quarantined = false, refresh triggered
+                                    → tools now visible to agents
+```
+
+> **Bypass for trusted automation:** pass `"autoApprove": true` in the `POST /api/servers` body to approve immediately (e.g. your own CI pipeline or a local dev setup).
+
+### Quarantine endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/servers/{id}/approve` | Clear quarantine, trigger tool refresh |
+| `POST` | `/api/servers/{id}/quarantine` | Place an active server back into quarantine |
+| `GET` | `/api/servers/quarantine` | List all currently quarantined servers |
+
+### Dashboard integration
+
+- The **Overview** tab shows a prominent amber alert banner when quarantined servers are pending review.
+- The **Servers** table has a new **Status** column: `Active` (green) or `Quarantined` (orange).
+  - Active servers show a shield icon button to quarantine them.
+  - Quarantined servers show a green **✓ Approve** button.
+- The **Security** tab shows the full quarantine review queue with one-click approve/delete actions.
+
+### Server registration flow in practice
+
+```
+External agent or CI pipeline:
+  POST /api/servers { name: "untrusted-server", url: "..." }
+  → Server registered, quarantined
+  → Admin reviews description in Security tab
+  → Admin clicks Approve  (or DELETE if malicious)
+  → Tools become available to agents
+```
+
+---
+
+## BM25 Semantic Tool Search
+
+When many MCP servers are connected the agent's context window fills quickly because `tools/list` returns every tool schema. The BM25 Semantic Tool Search feature solves this by exposing a single `mcpnet__retrieve_tools` tool that the agent calls to retrieve only the relevant tool schemas for the current task.
+
+### Token savings example
+
+```
+Without BM25:  tools/list → 50 schemas → ~7,500 tokens used
+With BM25:     tools/list → 1 schema (retrieve_tools) → ~150 tokens
+               retrieve_tools("read file") → top-5 results → ~750 tokens
+               Savings: ~6,600 tokens per turn
+```
+
+### How it works
+
+1. On every tool refresh, the gateway builds an in-memory **BM25 index** over all tool names and descriptions.
+2. When the agent calls `mcpnet__retrieve_tools`, the gateway scores every tool with BM25 and returns the top-N matching schemas.
+3. The `ToolSearchMetrics` singleton counts calls, results returned, and estimates cumulative token savings.
+
+### BM25 index details
+
+- **Zero dependencies** — pure C# implementation, no NuGet packages.
+- **Tuning:** K1 = 1.5, B = 0.75 (standard BM25 parameters).
+- **IDF formula:** Robertson-Sparck Jones variant (`log((N - df + 0.5)/(df + 0.5) + 1)`) — always ≥ 0, even for terms appearing in every document.
+- **Tokenizer:** splits on camelCase boundaries, `__`, `-`, whitespace; lowercases all terms. `deepwiki__ask_question` → `["deepwiki", "ask", "question"]`.
+- **Prefix expansion:** query terms of ≥ 3 characters are expanded to all vocabulary terms with that prefix, so `"file"` matches `"filesystem"`, `"deep"` matches `"deepwiki"`, etc.
+- **Thread safety:** `Rebuild` and `Search` share a single `volatile IndexSnapshot` reference. The snapshot (docs + IDF table + average doc length) is replaced atomically — readers always see a consistent triple with no locks needed.
+- **Lazy rebuild:** if a search is requested before the first background `RefreshAsync` completes, the index is built on-demand from the current tool cache.
+- **Pre-built TF:** term-frequency dictionaries are computed once at index build time, not on every search, eliminating per-search `Dictionary` allocations.
+
+### `mcpnet__retrieve_tools` tool
+
+Automatically available when `EnableMetaTools: true`:
+
+```json
+{
+  "name": "mcpnet__retrieve_tools",
+  "description": "Search for relevant MCP tools by semantic query. Returns top-N tool schemas ranked by BM25 relevance. Call this instead of loading all tool schemas to save context tokens.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string", "description": "Natural-language description of the task" },
+      "top":   { "type": "integer", "description": "Max results to return (default: 5)" }
+    },
+    "required": ["query"]
+  }
+}
+```
+
+Example response:
+```json
+[
+  {
+    "fullName": "filesystem__read_file",
+    "serverName": "filesystem",
+    "description": "Read the complete contents of a file from the file system.",
+    "inputSchema": { ... },
+    "score": 4.821
+  }
+]
+```
+
+### BM25 REST endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/tools/search?q={query}` | Live BM25 search; returns top-10 results + total tool count |
+| `GET` | `/api/tools/search-metrics` | Cumulative token-savings metrics |
+
+`search-metrics` response:
+```jsonc
+{
+  "enabled": true,
+  "totalCalls": 142,
+  "totalResultsReturned": 710,
+  "estimatedTokensSaved": 189750,   // (totalTools - 1 - resultsReturned) × 150 tokens/schema
+  "averageResultsPerCall": 5.0,
+  "averageToolsAtCall": 34.2,
+  "tokensPerSchema": 150,
+  "firstCallAt": "2026-06-22T08:00:00Z",
+  "lastCallAt": "2026-06-22T14:22:00Z"
+}
+```
+
+### Dashboard: Security tab
+
+The **Security** tab in the dashboard surfaces both quarantine management and BM25 metrics:
+
+- **Quarantine queue** — pending servers with Approve / Delete actions.
+- **BM25 Token Savings** — live metric cards: total calls, estimated tokens saved, average results per call, average tools at call time.
+- **Live Search Tester** — type any query and see real BM25 results with scores and a visual score bar.
+
+---
+
 ## Web Dashboard
 
 Access at **http://localhost:5050/dashboard** (or `/`).
@@ -621,13 +764,14 @@ Access at **http://localhost:5050/dashboard** (or `/`).
 
 | Tab | Description |
 |---|---|
-| **Dashboard** | Overview: server count, tool count, client count, recent activity feed |
-| **Servers** | Register, edit, enable/disable, delete upstream servers; inline health chips; Ping button |
+| **Dashboard** | Overview: server count, tool count, client count, quarantine alert, recent activity feed |
+| **Servers** | Register, edit, enable/disable, quarantine/approve, delete upstream servers; Status column; inline health chips; Ping button |
 | **Catalog** | Browse / search 61+ built-in MCP servers; add custom entries; one-click install |
 | **Tools** | Browse all aggregated tools; enable/disable individual tools; refresh trigger with live progress |
 | **Tool Groups** | Create groups, manage tool membership |
 | **Clients** | Create clients, manage permissions (server ACL, group ACL, rate limits, per-server rate limits), regenerate tokens |
 | **Activity** | Filterable audit log table |
+| **Security** | Quarantine review queue (approve / delete); BM25 token savings metrics; live BM25 search tester |
 | **Settings** | Import / export gateway config; gateway info |
 
 ### Background auto-refresh
@@ -650,10 +794,13 @@ All endpoints are under `/api` and require `X-Admin-Token: <token>` in Enterpris
 |---|---|---|
 | `GET` | `/api/servers` | List all registered servers |
 | `GET` | `/api/servers/{id}` | Get server details |
-| `POST` | `/api/servers` | Register a new server |
+| `POST` | `/api/servers` | Register a new server (quarantined by default; pass `autoApprove: true` to bypass) |
 | `PUT` | `/api/servers/{id}` | Update server |
 | `DELETE` | `/api/servers/{id}` | Remove server |
 | `PATCH` | `/api/servers/{id}/toggle` | Enable / disable server |
+| `POST` | `/api/servers/{id}/approve` | Clear quarantine flag and trigger tool refresh |
+| `POST` | `/api/servers/{id}/quarantine` | Put an active server into quarantine |
+| `GET` | `/api/servers/quarantine` | List all currently quarantined servers |
 | `GET` | `/api/servers/{id}/tools` | List tools from a specific server |
 | `GET` | `/api/servers/{id}/health` | Live health check (latency, tool count, runtime info) |
 | `GET` | `/api/servers/{id}/stdio-probe` | Probe stdio command path and runtime |
@@ -669,6 +816,8 @@ All endpoints are under `/api` and require `X-Admin-Token: <token>` in Enterpris
 | `GET` | `/api/tools/diagnostics` | Last refresh diagnostics per server |
 | `POST` | `/api/tools/call` | Call a tool directly from the dashboard |
 | `PATCH` | `/api/servers/{id}/tools/{toolName}/toggle` | Enable / disable individual tool |
+| `GET` | `/api/tools/search?q={query}` | BM25 semantic search over all tools (top-10) |
+| `GET` | `/api/tools/search-metrics` | Cumulative BM25 token-savings statistics |
 
 ### Groups
 
@@ -749,7 +898,7 @@ Config is stored in `~/.mcpnet/config.json`. On Unix/macOS the file is automatic
 ### Command reference
 
 ```bash
-# ── Servers ──────────────────────────────────────────────────────────────────
+# - Servers ---------------------------------
 mcpnet servers
 mcpnet register --name myserver --server-url https://mcp.example.com/mcp
 mcpnet register --name fs --transport Stdio --command npx \
@@ -758,19 +907,19 @@ mcpnet register --name fs --transport Stdio --command npx \
 mcpnet deregister myserver
 mcpnet refresh
 
-# ── Tools ────────────────────────────────────────────────────────────────────
+# - Tools ----------------------------------
 mcpnet tools [--server <name>]
 mcpnet enable  myserver__search
 mcpnet disable myserver__search
 
-# ── Groups ───────────────────────────────────────────────────────────────────
+# - Groups ---------------------------------─
 mcpnet groups
 mcpnet group create --name search-tools [--description ".."]
 mcpnet group delete search-tools
 mcpnet group add-tool    search-tools myserver__search
 mcpnet group remove-tool search-tools myserver__search
 
-# ── Clients ──────────────────────────────────────────────────────────────────
+# - Clients ---------------------------------
 mcpnet clients
 mcpnet client myagent                              # show detail
 mcpnet client create --name myagent
@@ -779,7 +928,7 @@ mcpnet client regenerate myagent                   # new bearer token
 mcpnet client update myagent --rate-limit 120
 mcpnet client update myagent --enabled false
 
-# ── Audit & meta ─────────────────────────────────────────────────────────────
+# - Audit & meta ------------------------------─
 mcpnet audit
 mcpnet version
 ```
@@ -803,8 +952,11 @@ Available meta-tools (all prefixed `mcpnet__`):
 | `mcpnet__refresh` | Trigger tool refresh |
 | `mcpnet__create_group` | Create a tool group |
 | `mcpnet__list_groups` | List tool groups |
+| `mcpnet__retrieve_tools` | **BM25 semantic search** — returns top-N matching tool schemas ranked by relevance. Agents call this instead of loading all schemas to save context tokens. |
 
 > Disabled by default. Enable only in trusted environments.
+
+> `mcpnet__retrieve_tools` is the primary mechanism for token savings. Instead of listing every tool schema (expensive), the agent calls `retrieve_tools` with a natural-language description of the task and receives only the relevant schemas.
 
 ---
 
@@ -1017,6 +1169,8 @@ Test coverage includes:
 | GET `/mcp` SSE | Authenticated in Enterprise mode (same Bearer check as POST) | Enforce Enterprise mode in production |
 | TLS | Not handled by the gateway | Place behind a reverse proxy (nginx, Caddy, YARP) for TLS termination in production |
 | Runtime data (`mcp-data/`) | Contains tokens, OAuth secrets, audit logs **and** the `dp-keys/` that decrypt them | **Never commit `mcp-data/` to source control.** It is git-ignored by default; if it was committed previously, purge it from history and rotate all tokens |
+| **Tool Poisoning Attacks** | New servers are **quarantined by default** — tools are not exposed until an admin approves the server | Review each new server's description in the **Security** tab before approving. Never use `autoApprove: true` for untrusted third-party servers. |
+| BM25 search index | In-memory, rebuilt from the live tool cache on every refresh | No external data exposure; tool names and descriptions are local data already held in the gateway |
 
 ---
 

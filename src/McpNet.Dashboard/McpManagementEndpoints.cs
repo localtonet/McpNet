@@ -59,11 +59,16 @@ namespace McpNet.Dashboard
                     StdioArgs = body.StdioArgs ?? new System.Collections.Generic.List<string>(),
                     StdioWorkingDirectory = body.StdioWorkingDirectory,
                     StdioEnvVars = body.StdioEnvVars ?? new System.Collections.Generic.Dictionary<string, string>(),
-                    OAuth = body.OAuth
+                    OAuth = body.OAuth,
+                    // Security quarantine: new servers are quarantined by default to prevent
+                    // Tool Poisoning Attacks. Set autoApprove=true in the request to bypass.
+                    Quarantined = !body.AutoApprove
                 };
                 var saved = await registry.RegisterServerAsync(server, ct);
                 // Fire-and-forget: stdio servers can take 60-120s to start on first run.
-                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
+                // Skip refresh if quarantined - server won't connect anyway.
+                if (!saved.Quarantined)
+                    _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
                 return Results.Created($"/api/servers/{saved.Id}", ServerDto(saved));
             });
 
@@ -216,6 +221,37 @@ namespace McpNet.Dashboard
                 s.Enabled = enabled;
                 await repo.UpdateAsync(s, ct);
                 return Results.Ok(new { id, enabled });
+            });
+
+            // ── Quarantine management ─────────────────────────────────────────
+            // Approve a quarantined server - it will connect on the next tool refresh.
+            group.MapPost("/servers/{id:guid}/approve", async (Guid id, IServerRepository repo, ToolAggregator aggregator, CancellationToken ct) =>
+            {
+                var s = await repo.GetByIdAsync(id, ct);
+                if (s is null) return Results.NotFound();
+                if (!s.Quarantined) return Results.Ok(new { id, quarantined = false, message = "Already approved." });
+                s.Quarantined = false;
+                await repo.UpdateAsync(s, ct);
+                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
+                return Results.Ok(new { id, quarantined = false, message = "Server approved. Tool refresh started." });
+            });
+
+            // Manually quarantine an approved server.
+            group.MapPost("/servers/{id:guid}/quarantine", async (Guid id, IServerRepository repo, ToolAggregator aggregator, CancellationToken ct) =>
+            {
+                var s = await repo.GetByIdAsync(id, ct);
+                if (s is null) return Results.NotFound();
+                s.Quarantined = true;
+                await repo.UpdateAsync(s, ct);
+                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
+                return Results.Ok(new { id, quarantined = true });
+            });
+
+            // List all quarantined servers.
+            group.MapGet("/servers/quarantine", async (IServerRepository repo, CancellationToken ct) =>
+            {
+                var quarantined = (await repo.GetAllAsync(ct)).Where(s => s.Quarantined).ToList();
+                return Results.Ok(quarantined.Select(s => new { s.Id, s.Name, TransportType = s.TransportType.ToString(), s.StdioCommand, s.CreatedAt }));
             });
 
             // ── Audit Logs ────────────────────────────────────────────────────
@@ -594,6 +630,46 @@ namespace McpNet.Dashboard
                         : aggregator.LastRefreshedAt
                 }));
 
+            // ── BM25 search metrics ───────────────────────────────────────────
+            group.MapGet("/tools/search-metrics", (IServiceProvider sp) =>
+            {
+                var m = sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
+                if (m is null) return Results.Ok(new { enabled = false });
+                return Results.Ok(new
+                {
+                    enabled = true,
+                    totalCalls = m.TotalCalls,
+                    totalResultsReturned = m.TotalResultsReturned,
+                    estimatedTokensSaved = m.EstimatedTokensSaved,
+                    averageResultsPerCall = Math.Round(m.AverageResultsPerCall, 1),
+                    averageToolsAtCall = Math.Round(m.AverageToolsAtCall, 1),
+                    tokensPerSchema = McpNet.Gateway.Aggregation.ToolSearchMetrics.TokensPerSchema,
+                    firstCallAt = m.FirstCallAt == DateTime.MinValue ? (DateTime?)null : m.FirstCallAt,
+                    lastCallAt  = m.LastCallAt  == DateTime.MinValue ? (DateTime?)null : m.LastCallAt
+                });
+            });
+
+            // ── BM25 live search (dashboard tool-search tester) ──────────────
+            group.MapGet("/tools/search", (string q, ToolAggregator aggregator) =>
+            {
+                if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest("q is required");
+                var results = aggregator.SearchTools(q.Trim(), 10);
+                // Record in metrics too (marked as "dashboard" search - separate from agent calls,
+                // but we skip recording so it doesn't inflate agent-savings numbers).
+                return Results.Ok(new
+                {
+                    query = q,
+                    totalTools = aggregator.GetEnabledTools().Count,
+                    results = results.Select(r => new
+                    {
+                        r.Tool.FullName,
+                        r.Tool.ServerName,
+                        Description = r.Tool.Definition?.Description,
+                        Score = Math.Round(r.Score, 3)
+                    })
+                });
+            });
+
             // ── Feature 8: Claude Desktop config import ───────────────────────
             // Accepts the JSON format used in claude_desktop_config.json:
             // { "mcpServers": { "serverName": { "command": "...", "args": [...], "env": {...} } } }
@@ -676,7 +752,7 @@ namespace McpNet.Dashboard
         {
             s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(),
             s.StdioCommand,
-            s.Enabled, s.CreatedAt, s.UpdatedAt,
+            s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt,
             HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true },
             OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null
         };
@@ -685,7 +761,7 @@ namespace McpNet.Dashboard
         private static object ServerDetailDto(RegisteredServer s) => new
         {
             s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(),
-            s.Enabled, s.CreatedAt, s.UpdatedAt,
+            s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt,
             s.StdioCommand, s.StdioArgs, s.StdioWorkingDirectory,
             // Return env var keys only (never values) so the dashboard can show which
             // keys are configured without leaking secrets to the browser.
@@ -735,6 +811,8 @@ namespace McpNet.Dashboard
             public string? StdioWorkingDirectory { get; set; }
             public System.Collections.Generic.Dictionary<string, string>? StdioEnvVars { get; set; }
             public OAuthConfig? OAuth { get; set; }
+            /// <summary>When true, the server is approved immediately (not quarantined). Default false.</summary>
+            public bool AutoApprove { get; set; } = false;
         }
 
         private class CreateGroupRequest

@@ -55,11 +55,11 @@ namespace McpNet.Gateway.Registry
 
         public McpUpstreamClient GetOrCreateClient(RegisteredServer server)
         {
-            // Fast path — already exists.
+            // Fast path - already exists.
             if (_clients.TryGetValue(server.Id, out var existing))
                 return existing;
 
-            // Slow path — serialize creation to prevent duplicate stdio processes.
+            // Slow path - serialize creation to prevent duplicate stdio processes.
             // ConcurrentDictionary.GetOrAdd can invoke the factory on multiple threads
             // simultaneously; for stdio servers this would start two child processes where
             // only one would ever be used or disposed.

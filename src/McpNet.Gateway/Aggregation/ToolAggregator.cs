@@ -30,6 +30,7 @@ namespace McpNet.Gateway.Aggregation
         private readonly IServerRepository _serverRepo;
         private readonly IToolStateStore? _stateStore;
         private readonly ConcurrentDictionary<string, AggregatedTool> _toolCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ToolSearchIndex _searchIndex = new();
         private readonly object _diagnosticsLock = new object();
         private readonly object _stateLock = new object();
         private List<ToolRefreshDiagnostic> _lastRefreshDiagnostics = new List<ToolRefreshDiagnostic>();
@@ -70,7 +71,8 @@ namespace McpNet.Gateway.Aggregation
             try
             {
                 var servers = await _serverRepo.GetAllAsync(ct).ConfigureAwait(false);
-                var enabledServers = servers.Where(s => s.Enabled).ToList();
+                // Skip quarantined servers - they are pending approval and must not connect.
+                var enabledServers = servers.Where(s => s.Enabled && !s.Quarantined).ToList();
 
                 // Track which keys this refresh produces (for stale-entry removal at the end).
                 var allNewKeys  = new System.Collections.Concurrent.ConcurrentBag<string>();
@@ -233,6 +235,9 @@ namespace McpNet.Gateway.Aggregation
                     Interlocked.Increment(ref _toolsVersion);
                 }
 
+                // Rebuild BM25 search index from current enabled tools.
+                _searchIndex.Rebuild(GetEnabledTools());
+
                 _lastRefreshedAt = DateTime.UtcNow;
             }
             finally
@@ -261,6 +266,17 @@ namespace McpNet.Gateway.Aggregation
             return Convert.ToHexString(hash);
         }
         public List<AggregatedTool> GetAllTools() => _toolCache.Values.ToList();
+
+        /// <summary>BM25 full-text search over all enabled tool names and descriptions.</summary>
+        public List<(AggregatedTool Tool, double Score)> SearchTools(string query, int topN = 5)
+        {
+            // Lazy rebuild: if the index is empty but tools are already in the cache
+            // (e.g. searched before the first background RefreshAsync completes its Rebuild),
+            // build it on demand so the first search isn't always empty.
+            if (_searchIndex.IsEmpty && _toolCache.Count > 0)
+                _searchIndex.Rebuild(GetEnabledTools());
+            return _searchIndex.Search(query, topN);
+        }
 
         /// <summary>
         /// Returns tools that are both user-enabled and not auto-disabled (Feature 1).
