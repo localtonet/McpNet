@@ -8,15 +8,11 @@ on:
     branches: [main]
 
 permissions:
-  contents: write   # needed to create GitHub Releases
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECRETS required for release tags:
-#   NUGET_API_KEY  — NuGet.org API key with push permission
-# ─────────────────────────────────────────────────────────────────────────────
+  contents: write
+  id-token: write
 
 jobs:
-  # ── 1. Test ────────────────────────────────────────────────────────────────
+  # - 1. Test --------------------------------
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -36,9 +32,7 @@ jobs:
       - name: Test
         run: dotnet test McpNet.slnx -c Release --no-build --nologo --verbosity normal
 
-  # ── 2. NuGet publish ───────────────────────────────────────────────────────
-  #   Packs McpNet.Gateway and McpNet.Gateway.Standalone, pushes to NuGet.org.
-  #   Runs only on version tags (v*.*.*).
+  # - 2. NuGet publish ---------------------------─
   nuget:
     name: NuGet — Publish
     runs-on: ubuntu-latest
@@ -94,10 +88,7 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
-  # ── 3. Build self-contained binaries (all platforms) ──────────────────────
-  #   Publishes mcpnet-gateway (Host) and mcpnet (CLI) for each RID.
-  #   Cross-compilation runs on ubuntu-latest; .NET 8 handles all target RIDs.
-  #   Runs only on version tags (v*.*.*).
+  # - 3. Build self-contained binaries -------------------
   publish:
     name: Publish — ${{ matrix.rid }}
     runs-on: ubuntu-latest
@@ -126,7 +117,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Restore
-        run: dotnet restore McpNet.slnx
+        run: dotnet restore McpNet.slnx -r ${{ matrix.rid }}
 
       - name: Publish mcpnet-gateway (Host)
         run: |
@@ -159,11 +150,9 @@ jobs:
           ver="${{ steps.ver.outputs.version }}"
 
           if [[ "$rid" == win-* ]]; then
-            # Windows — zip
             zip -j dist/mcpnet-gateway-${ver}-${rid}.zip  out/host/mcpnet-gateway.exe
             zip -j dist/mcpnet-${ver}-${rid}.zip           out/cli/mcpnet.exe
           else
-            # Linux / macOS — tar.gz
             tar -czf dist/mcpnet-gateway-${ver}-${rid}.tar.gz -C out/host mcpnet-gateway
             tar -czf dist/mcpnet-${ver}-${rid}.tar.gz          -C out/cli  mcpnet
           fi
@@ -175,9 +164,7 @@ jobs:
           path: dist/
           retention-days: 1
 
-  # ── 4. Create GitHub Release ───────────────────────────────────────────────
-  #   Downloads all per-RID artifacts and attaches them to the release.
-  #   Marks as pre-release if the tag contains a hyphen (e.g. v1.2.3-beta.1).
+  # - 4. GitHub Release --------------------------─
   github-release:
     name: GitHub Release
     runs-on: ubuntu-latest
