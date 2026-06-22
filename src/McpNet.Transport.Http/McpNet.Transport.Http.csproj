@@ -7,7 +7,7 @@
     <!-- NuGet packaging -->
     <IsPackable>true</IsPackable>
     <PackageId>McpNet.Transport.Http</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>
       StreamableHTTP and SSE upstream transport for McpNet.Gateway.
       Provides HttpListenerMcpTransport for embedding the gateway
