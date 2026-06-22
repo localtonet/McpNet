@@ -11,6 +11,7 @@ using McpNet.Gateway.Auth;
 using McpNet.Gateway.Dashboard;
 using McpNet.Gateway.Extensions;
 using McpNet.Gateway.Groups;
+using McpNet.Gateway.Notifications;
 using McpNet.Gateway.Registry;
 using McpNet.Gateway.Routing;
 using McpNet.Gateway.Security;
@@ -70,6 +71,10 @@ namespace McpNet.Gateway.Standalone
                     sp.GetService<McpNet.Gateway.Abstractions.IToolStateStore>()));
             services.AddSingleton<ToolGroupManager>();
             services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
+            // Feature 2: SSE notification manager.
+            services.AddSingleton<McpNet.Gateway.Notifications.SseConnectionManager>();
+            // Feature 5: per-tool response cache.
+            services.AddSingleton<McpNet.Gateway.Routing.ToolResponseCache>();
             services.AddSingleton<GatewayRequestRouter>(sp =>
                 new GatewayRequestRouter(
                     sp.GetRequiredService<ToolAggregator>(),
@@ -80,7 +85,8 @@ namespace McpNet.Gateway.Standalone
                     sp.GetService<McpNet.Gateway.Abstractions.IClientRepository>(),
                     sp.GetService<McpNet.Gateway.Abstractions.IAuditLogRepository>(),
                     null, // MetaToolHandler not used in standalone by default
-                    sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>()));
+                    sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>(),
+                    sp.GetService<McpNet.Gateway.Routing.ToolResponseCache>()));
 
             // Shared catalog service (no ASP.NET Core)
             services.AddSingleton(new GatewayCatalogService(dataDir));

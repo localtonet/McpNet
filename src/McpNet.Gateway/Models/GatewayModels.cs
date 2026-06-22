@@ -28,6 +28,24 @@ namespace McpNet.Gateway.Models
         /// </summary>
         public Dictionary<string, string> StdioEnvVars { get; set; } = new Dictionary<string, string>();
         public OAuthConfig? OAuth { get; set; }
+        /// <summary>
+        /// Tool name aliases exposed to MCP clients. Key = alias (short name), Value = local tool
+        /// name on this server. The gateway exposes the alias as "{serverName}__{alias}" and strips
+        /// the alias back to the original local name before forwarding to the upstream.
+        /// Example: { "search": "web_search_v2" } → clients see "{server}__search".
+        /// </summary>
+        public Dictionary<string, string> ToolAliases { get; set; } = new Dictionary<string, string>();
+        /// <summary>
+        /// When &gt; 0, successful (non-error) tool call responses are cached in memory for this
+        /// many seconds. Useful for read-only tools (file listing, catalog lookup, etc.).
+        /// Default 0 = no caching.
+        /// </summary>
+        public int CacheTtlSeconds { get; set; } = 0;
+        /// <summary>
+        /// When true (default), a crashed stdio child process is automatically restarted
+        /// with exponential back-off (2 s → 4 s → … → 60 s, up to 10 attempts).
+        /// </summary>
+        public bool AutoRestart { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }

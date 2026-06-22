@@ -2,6 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McpNet.Core.Capabilities;
@@ -13,6 +15,17 @@ namespace McpNet.Gateway.Aggregation
 {
     public class ToolAggregator
     {
+        // ── Feature 1: auto health-check / auto-disable ──────────────────────
+        /// <summary>Number of consecutive refresh failures before a server is auto-disabled.</summary>
+        public const int AutoDisableThreshold = 3;
+        private readonly ConcurrentDictionary<Guid, int> _consecutiveFailures = new();
+        private readonly ConcurrentDictionary<Guid, byte> _autoDisabled = new();
+
+        // ── Feature 2: change detection for notifications/tools/list_changed ─
+        private long _toolsVersion;
+        private string _lastToolsHash = string.Empty;
+
+        // ── Core fields ──────────────────────────────────────────────────────
         private readonly ServerRegistry _registry;
         private readonly IServerRepository _serverRepo;
         private readonly IToolStateStore? _stateStore;
@@ -28,6 +41,8 @@ namespace McpNet.Gateway.Aggregation
 
         public bool IsRefreshing => _isRefreshing;
         public DateTime LastRefreshedAt => _lastRefreshedAt;
+        /// <summary>Increments each time the aggregated tool list changes. Poll for push-notification decisions.</summary>
+        public long ToolsVersion => Interlocked.Read(ref _toolsVersion);
 
         public ToolAggregator(ServerRegistry registry, IServerRepository serverRepo, IToolStateStore? stateStore = null)
         {
@@ -77,6 +92,8 @@ namespace McpNet.Gateway.Aggregation
 
                         if (!client.IsConnected)
                         {
+                            // Feature 1: count as a failure.
+                            RecordFailure(server.Id);
                             allDiags.Add(new ToolRefreshDiagnostic
                             {
                                 ServerId = server.Id, ServerName = server.Name,
@@ -115,6 +132,39 @@ namespace McpNet.Gateway.Aggregation
                             _toolCache[fullName] = entry;
                         }
 
+                        // Feature 7: register tool aliases defined on the server.
+                        if (server.ToolAliases != null && server.ToolAliases.Count > 0)
+                        {
+                            var toolLookup = tools.ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
+                            foreach (var alias in server.ToolAliases)
+                            {
+                                if (!toolLookup.TryGetValue(alias.Value, out var srcTool)) continue;
+                                var aliasFullName = $"{server.Name}__{alias.Key}";
+                                allNewKeys.Add(aliasFullName);
+                                var aliasEntry = new AggregatedTool
+                                {
+                                    FullName = aliasFullName,
+                                    LocalName = alias.Value,   // route to original tool name
+                                    ServerName = server.Name,
+                                    ServerId = server.Id,
+                                    Enabled = true,
+                                    Definition = new McpTool
+                                    {
+                                        Name = aliasFullName,
+                                        Description = $"(alias for {alias.Value}) {srcTool.Description}",
+                                        InputSchema = srcTool.InputSchema
+                                    }
+                                };
+                                if (_toolCache.TryGetValue(aliasFullName, out var existingAlias))
+                                    aliasEntry.Enabled = existingAlias.Enabled;
+                                _toolCache[aliasFullName] = aliasEntry;
+                            }
+                        }
+
+                        // Feature 1: success → clear failure counter and auto-disabled flag.
+                        _consecutiveFailures.TryRemove(server.Id, out _);
+                        _autoDisabled.TryRemove(server.Id, out _);
+
                         allDiags.Add(new ToolRefreshDiagnostic
                         {
                             ServerId = server.Id, ServerName = server.Name,
@@ -128,6 +178,8 @@ namespace McpNet.Gateway.Aggregation
                     }
                     catch (Exception ex)
                     {
+                        // Feature 1: count consecutive failures and auto-disable after threshold.
+                        RecordFailure(server.Id);
                         allDiags.Add(new ToolRefreshDiagnostic
                         {
                             ServerId = server.Id, ServerName = server.Name,
@@ -173,6 +225,14 @@ namespace McpNet.Gateway.Aggregation
                             t.Enabled = kv.Value;
                 }
 
+                // Feature 2: compute a hash of the current tool set; increment version on change.
+                var toolHash = ComputeToolsHash();
+                if (toolHash != _lastToolsHash)
+                {
+                    _lastToolsHash = toolHash;
+                    Interlocked.Increment(ref _toolsVersion);
+                }
+
                 _lastRefreshedAt = DateTime.UtcNow;
             }
             finally
@@ -181,9 +241,35 @@ namespace McpNet.Gateway.Aggregation
                 _refreshLock.Release();
             }
         }
+
+        // ── Feature 1: helper ────────────────────────────────────────────────
+        private void RecordFailure(Guid serverId)
+        {
+            var count = _consecutiveFailures.AddOrUpdate(serverId, 1, (_, c) => c + 1);
+            if (count >= AutoDisableThreshold)
+                _autoDisabled[serverId] = 0;
+        }
+
+        /// <summary>Returns server IDs that were auto-disabled due to repeated refresh failures.</summary>
+        public IReadOnlyCollection<Guid> GetAutoDisabledServerIds() => _autoDisabled.Keys.ToList();
+
+        // ── Feature 2: hash helper ───────────────────────────────────────────
+        private string ComputeToolsHash()
+        {
+            var names = string.Join("|", _toolCache.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase));
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(names));
+            return Convert.ToHexString(hash);
+        }
         public List<AggregatedTool> GetAllTools() => _toolCache.Values.ToList();
 
-        public List<AggregatedTool> GetEnabledTools() => _toolCache.Values.Where(t => t.Enabled).ToList();
+        /// <summary>
+        /// Returns tools that are both user-enabled and not auto-disabled (Feature 1).
+        /// This is the list sent to MCP clients via tools/list.
+        /// </summary>
+        public List<AggregatedTool> GetEnabledTools()
+            => _toolCache.Values
+                .Where(t => t.Enabled && !_autoDisabled.ContainsKey(t.ServerId))
+                .ToList();
 
         public AggregatedTool? GetTool(string fullName)
         {

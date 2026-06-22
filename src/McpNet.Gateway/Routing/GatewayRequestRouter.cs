@@ -29,6 +29,7 @@ namespace McpNet.Gateway.Routing
         private readonly GatewaySessionManager _sessions;
         private readonly MetaToolHandler? _metaTools;
         private readonly GatewayRateLimiter? _rateLimiter;
+        private readonly ToolResponseCache? _responseCache;
 
         public GatewayRequestRouter(
             ToolAggregator aggregator,
@@ -39,7 +40,8 @@ namespace McpNet.Gateway.Routing
             IClientRepository? clientRepo = null,
             IAuditLogRepository? auditLog = null,
             MetaToolHandler? metaTools = null,
-            GatewayRateLimiter? rateLimiter = null)
+            GatewayRateLimiter? rateLimiter = null,
+            ToolResponseCache? responseCache = null)
         {
             _aggregator = aggregator;
             _registry = registry;
@@ -50,6 +52,7 @@ namespace McpNet.Gateway.Routing
             _auditLog = auditLog;
             _metaTools = metaTools;
             _rateLimiter = rateLimiter;
+            _responseCache = responseCache;
         }
 
         public async Task<JsonRpcResponse> HandleAsync(JsonRpcRequest request, string? sessionId, McpClient? client, CancellationToken ct = default)
@@ -139,6 +142,15 @@ namespace McpNet.Gateway.Routing
             if (!tool.Enabled)
                 return new JsonRpcResponse { Id = request.Id, Error = new JsonRpcError { Code = -32601, Message = $"Tool '{p.Name}' is disabled" } };
 
+            // Feature 3: validate arguments against the tool's JSON schema before forwarding.
+            var validationError = JsonSchemaValidator.Validate(tool.Definition.InputSchema, p.Arguments);
+            if (validationError != null)
+                return new JsonRpcResponse
+                {
+                    Id = request.Id,
+                    Error = new JsonRpcError { Code = -32602, Message = $"Invalid params: {validationError}" }
+                };
+
             var server = (await _serverRepo.GetAllAsync(ct).ConfigureAwait(false))
                 .FirstOrDefault(s => s.Id == tool.ServerId)
                 ?? throw new InvalidOperationException($"Server for tool '{p.Name}' not found");
@@ -168,6 +180,11 @@ namespace McpNet.Gateway.Routing
                         };
                 }
             }
+
+            // Feature 5: return a cached response when TTL is configured and we have a hit.
+            if (_responseCache != null && server.CacheTtlSeconds > 0
+                && _responseCache.TryGet(p.Name, p.Arguments, out var cachedResult))
+                return new JsonRpcResponse { Id = request.Id, Result = cachedResult };
 
             var upstreamClient = _registry.GetOrCreateClient(server);
             if (!upstreamClient.IsConnected)
@@ -230,6 +247,10 @@ namespace McpNet.Gateway.Routing
                     ErrorMessage = errorMsg,
                     DurationMs = sw.ElapsedMilliseconds
                 }, ct).ConfigureAwait(false);
+
+            // Feature 5: populate response cache for future identical calls.
+            if (_responseCache != null && server.CacheTtlSeconds > 0 && !callResult.IsError)
+                _responseCache.Set(server.Name, p.Name, p.Arguments, callResult, server.CacheTtlSeconds);
 
             return new JsonRpcResponse { Id = request.Id, Result = callResult };
         }

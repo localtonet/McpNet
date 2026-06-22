@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using McpNet.Gateway.Abstractions;
 using McpNet.Gateway.Aggregation;
@@ -78,6 +79,12 @@ switch (persistence)
         break;
 }
 
+// IToolStateStore is registered by AddMcpJsonPersistence.
+// For DB backends it is absent, so fall back to a small JSON sidecar file so that
+// tool enable/disable state persists across restarts regardless of persistence backend.
+builder.Services.TryAddSingleton<McpNet.Gateway.Abstractions.IToolStateStore>(
+    new McpNet.Gateway.Persistence.Json.JsonToolStateStore(dataDir));
+
 // ── Gateway core services ─────────────────────────────────────────────────────
 builder.Services.AddMcpGateway(o =>
 {
@@ -89,6 +96,10 @@ builder.Services.AddMcpGateway(o =>
 builder.Services.AddHttpClient();
 // In-memory sliding-window rate limiter (replaces audit-log scan on every call).
 builder.Services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
+// Feature 2: SSE notification manager for push notifications.
+builder.Services.AddSingleton<McpNet.Gateway.Notifications.SseConnectionManager>();
+// Feature 5: per-tool response cache.
+builder.Services.AddSingleton<McpNet.Gateway.Routing.ToolResponseCache>();
 
 builder.Services.AddSingleton<ServerRegistry>(sp =>
 {
@@ -124,7 +135,8 @@ builder.Services.AddSingleton<GatewayRequestRouter>(sp =>
         sp.GetService<McpNet.Gateway.Abstractions.IClientRepository>(),
         sp.GetService<McpNet.Gateway.Abstractions.IAuditLogRepository>(),
         sp.GetService<MetaToolHandler>(),
-        sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>()));
+        sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>(),
+        sp.GetService<McpNet.Gateway.Routing.ToolResponseCache>()));
 
 builder.Services.AddHostedService<ToolRefreshBackgroundService>();
 
@@ -139,6 +151,9 @@ app.MapMcpManagement("/api");
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 app.MapMcpDashboard("/dashboard");
+
+// ── Feature 6: Prometheus scraping endpoint (opt-in) ─────────────────────────
+app.MapPrometheusIfEnabled();
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 app.MapGet("/", () => Results.Redirect("/dashboard"));

@@ -4,6 +4,14 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- NuGet packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageId>McpNet.Core</PackageId>
+    <Version>1.0.0</Version>
+    <Description>
+      Core MCP protocol types, JSON-RPC request/response models, and McpJsonOptions
+      for System.Text.Json serialisation. Targets netstandard2.0.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using McpNet.Core.Protocol;
 using McpNet.Core.Serialization;
 using McpNet.Gateway.Auth;
+using McpNet.Gateway.Notifications;
 using McpNet.Gateway.Routing;
 using McpNet.Gateway.Sessions;
 
@@ -93,17 +94,40 @@ namespace McpNet.Transport.AspNetCore
                 ctx.Response.ContentType = "text/event-stream";
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
                 ctx.Response.Headers["X-Accel-Buffering"] = "no";
+
+                // Feature 2: register with SseConnectionManager so server-initiated notifications
+                // (e.g. notifications/tools/list_changed) can be pushed to this client.
+                var sseManager = ctx.RequestServices.GetService<SseConnectionManager>();
+                Guid sseId = default;
+                System.Threading.Channels.ChannelReader<string>? reader = null;
+                if (sseManager != null)
+                    (sseId, reader) = sseManager.Register();
+
                 var keepAlive = Encoding.UTF8.GetBytes(":keep-alive\n\n");
                 try
                 {
                     while (!ctx.RequestAborted.IsCancellationRequested)
                     {
+                        // Drain any pending notifications first.
+                        if (reader != null)
+                        {
+                            while (reader.TryRead(out var msg))
+                            {
+                                await ctx.Response.WriteAsync(msg, ctx.RequestAborted);
+                                await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+                            }
+                        }
+
                         await ctx.Response.Body.WriteAsync(keepAlive, ctx.RequestAborted);
                         await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
                         await Task.Delay(15000, ctx.RequestAborted);
                     }
                 }
                 catch (OperationCanceledException) { }
+                finally
+                {
+                    sseManager?.Deregister(sseId);
+                }
             });
 
             group.MapDelete("", (HttpContext ctx) =>

@@ -1,0 +1,200 @@
+name: CI / Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECRETS required for release tags:
+#   NUGET_API_KEY  — NuGet.org API key with push permission
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ── 1. Test ────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore McpNet.slnx
+
+      - name: Build
+        run: dotnet build McpNet.slnx -c Release --no-restore --nologo
+
+      - name: Test
+        run: dotnet test McpNet.slnx -c Release --no-build --nologo --verbosity normal
+
+  # ── 2. NuGet publish ───────────────────────────────────────────────────────
+  #   Packs McpNet.Gateway and McpNet.Gateway.Standalone, pushes to NuGet.org.
+  #   Runs only on version tags (v*.*.*).
+  nuget:
+    name: NuGet — Publish
+    runs-on: ubuntu-latest
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Parse version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore McpNet.slnx
+
+      - name: Pack McpNet.Core
+        run: |
+          dotnet pack src/McpNet.Core/McpNet.Core.csproj \
+            -c Release --no-restore --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -o nupkgs
+
+      - name: Pack McpNet.Gateway
+        run: |
+          dotnet pack src/McpNet.Gateway/McpNet.Gateway.csproj \
+            -c Release --no-restore --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -o nupkgs
+
+      - name: Pack McpNet.Transport.Http
+        run: |
+          dotnet pack src/McpNet.Transport.Http/McpNet.Transport.Http.csproj \
+            -c Release --no-restore --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -o nupkgs
+
+      - name: Pack McpNet.Gateway.Standalone
+        run: |
+          dotnet pack src/McpNet.Gateway.Standalone/McpNet.Gateway.Standalone.csproj \
+            -c Release --no-restore --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -o nupkgs
+
+      - name: Push to NuGet.org
+        run: |
+          dotnet nuget push nupkgs/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+  # ── 3. Build self-contained binaries (all platforms) ──────────────────────
+  #   Publishes mcpnet-gateway (Host) and mcpnet (CLI) for each RID.
+  #   Cross-compilation runs on ubuntu-latest; .NET 8 handles all target RIDs.
+  #   Runs only on version tags (v*.*.*).
+  publish:
+    name: Publish — ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    strategy:
+      fail-fast: false
+      matrix:
+        rid:
+          - win-x64
+          - linux-x64
+          - linux-arm64
+          - osx-x64
+          - osx-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Parse version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore McpNet.slnx
+
+      - name: Publish mcpnet-gateway (Host)
+        run: |
+          dotnet publish src/McpNet.Host/McpNet.Host.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            --no-restore \
+            --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -p:PublishSingleFile=true \
+            -o out/host
+
+      - name: Publish mcpnet (CLI)
+        run: |
+          dotnet publish src/McpNet.Cli/McpNet.Cli.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            --no-restore \
+            --nologo \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -p:PublishSingleFile=true \
+            -o out/cli
+
+      - name: Archive binaries
+        run: |
+          mkdir -p dist
+          rid="${{ matrix.rid }}"
+          ver="${{ steps.ver.outputs.version }}"
+
+          if [[ "$rid" == win-* ]]; then
+            # Windows — zip
+            zip -j dist/mcpnet-gateway-${ver}-${rid}.zip  out/host/mcpnet-gateway.exe
+            zip -j dist/mcpnet-${ver}-${rid}.zip           out/cli/mcpnet.exe
+          else
+            # Linux / macOS — tar.gz
+            tar -czf dist/mcpnet-gateway-${ver}-${rid}.tar.gz -C out/host mcpnet-gateway
+            tar -czf dist/mcpnet-${ver}-${rid}.tar.gz          -C out/cli  mcpnet
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.rid }}
+          path: dist/
+          retention-days: 1
+
+  # ── 4. Create GitHub Release ───────────────────────────────────────────────
+  #   Downloads all per-RID artifacts and attaches them to the release.
+  #   Marks as pre-release if the tag contains a hyphen (e.g. v1.2.3-beta.1).
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [nuget, publish]
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

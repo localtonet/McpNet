@@ -584,6 +584,80 @@ namespace McpNet.Dashboard
                 return Results.Ok();
             });
 
+            // ── Feature 2: tools version (for polling / ETag-based change detection) ──
+            group.MapGet("/tools/version", (ToolAggregator aggregator) =>
+                Results.Ok(new
+                {
+                    version = aggregator.ToolsVersion,
+                    lastRefreshedAt = aggregator.LastRefreshedAt == DateTime.MinValue
+                        ? (DateTime?)null
+                        : aggregator.LastRefreshedAt
+                }));
+
+            // ── Feature 8: Claude Desktop config import ───────────────────────
+            // Accepts the JSON format used in claude_desktop_config.json:
+            // { "mcpServers": { "serverName": { "command": "...", "args": [...], "env": {...} } } }
+            group.MapPost("/import/claude-desktop", async (HttpContext ctx, IServerRepository repo, ServerRegistry registry, ToolAggregator aggregator, CancellationToken ct) =>
+            {
+                string bodyText;
+                try
+                {
+                    using var reader = new System.IO.StreamReader(ctx.Request.Body, System.Text.Encoding.UTF8);
+                    bodyText = await reader.ReadToEndAsync(ct);
+                }
+                catch { return Results.BadRequest("Could not read request body"); }
+
+                System.Text.Json.JsonElement root;
+                try { root = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(bodyText); }
+                catch { return Results.BadRequest("Invalid JSON"); }
+
+                if (!root.TryGetProperty("mcpServers", out var mcpServersEl)
+                    || mcpServersEl.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    return Results.BadRequest("Missing or invalid 'mcpServers' key");
+
+                var existing = (await repo.GetAllAsync(ct)).Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                int added = 0;
+                int skipped = 0;
+
+                foreach (var prop in mcpServersEl.EnumerateObject())
+                {
+                    var name = prop.Name;
+                    if (existing.Contains(name)) { skipped++; continue; }
+
+                    var entry = prop.Value;
+                    var command = entry.TryGetProperty("command", out var cmdEl) ? cmdEl.GetString() ?? "" : "";
+                    if (string.IsNullOrWhiteSpace(command)) { skipped++; continue; }
+
+                    var args = new List<string>();
+                    if (entry.TryGetProperty("args", out var argsEl) && argsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        foreach (var a in argsEl.EnumerateArray())
+                            if (a.GetString() is { } s2) args.Add(s2);
+
+                    var env = new Dictionary<string, string>();
+                    if (entry.TryGetProperty("env", out var envEl) && envEl.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        foreach (var e in envEl.EnumerateObject())
+                            if (e.Value.GetString() is { } v) env[e.Name] = v;
+
+                    var server = new RegisteredServer
+                    {
+                        Name = name,
+                        TransportType = UpstreamTransportType.Stdio,
+                        StdioCommand = command,
+                        StdioArgs = args,
+                        StdioEnvVars = env,
+                        CustomHeaders = new Dictionary<string, string>()
+                    };
+                    await registry.RegisterServerAsync(server, ct);
+                    existing.Add(name);
+                    added++;
+                }
+
+                if (added > 0)
+                    _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
+
+                return Results.Ok(new { serversAdded = added, serversSkipped = skipped });
+            });
+
             return group;
         }
 
