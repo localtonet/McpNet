@@ -57,16 +57,16 @@ McpNet Gateway sits between your AI agents (Claude, Cursor, any MCP client) and 
 AI Agent (MCP client)
         │  Bearer token
         ▼
- ┌------------------─┐
+ ┌─────────────────────────────────────┐
  │          McpNet Gateway             │
- │  ┌---------------┐   │
+ │  ┌──────────────────────────────┐   │
  │  │  Auth · Rate Limit · Audit   │   │
- │  └-------┬-------─┘   │
- │  ┌-------▼-------─┐   │
+ │  └──────────────┬───────────────┘   │
+ │  ┌──────────────▼───────────────┐   │
  │  │      Tool Aggregator         │   │
  │  │  (parallel refresh cache)    │   │
- │  └-┬-----┬-----┬--─┘   │
- └--─│-----│-----│----─┘
+ │  └──┬──────────┬──────────┬─────┘   │
+ └─────│──────────│──────────│─────────┘
        │          │          │
        ▼          ▼          ▼
   Server A    Server B    Server C
@@ -87,15 +87,15 @@ AI Agent (MCP client)
 
 ```
 src/
-├- McpNet.Core                  Protocol models, JSON-RPC, McpJsonOptions
-├- McpNet.Gateway               Routing, aggregation, upstream clients, OAuth, telemetry
-├- McpNet.Gateway.Persistence   EF Core repositories (SQLite / PostgreSQL)
-├- McpNet.Transport.AspNetCore  ASP.NET Core MCP transport middleware
-├- McpNet.Transport.Http        Streamable-HTTP & SSE upstream client
-├- McpNet.Transport.Stdio       Stdio (child-process) upstream client
-├- McpNet.Dashboard             Web dashboard + REST management API (embedded resources)
-├- McpNet.Host                  Composition root - entry point
-└- McpNet.Cli                   `mcpnet` management CLI
+├── McpNet.Core                  Protocol models, JSON-RPC, McpJsonOptions
+├── McpNet.Gateway               Routing, aggregation, upstream clients, OAuth, telemetry
+├── McpNet.Gateway.Persistence   EF Core repositories (SQLite / PostgreSQL)
+├── McpNet.Transport.AspNetCore  ASP.NET Core MCP transport middleware
+├── McpNet.Transport.Http        Streamable-HTTP & SSE upstream client
+├── McpNet.Transport.Stdio       Stdio (child-process) upstream client
+├── McpNet.Dashboard             Web dashboard + REST management API (embedded resources)
+├── McpNet.Host                  Composition root - entry point
+└── McpNet.Cli                   `mcpnet` management CLI
 ```
 
 ---
@@ -437,9 +437,9 @@ bob__send_email
 AI Agent (Claude)
       │  one MCP connection
       ▼
-┌-----------┐
+┌──────────────────────┐
 │   Gateway C          │  ← AI sees this only; tool names prefixed by C
-└---─┬---┬---─┘
+└───────┬──────┬───────┘
         │      │  upstream MCP calls (original tool names, no prefix)
         ▼      ▼
    Gateway A  Gateway B
@@ -898,7 +898,7 @@ Config is stored in `~/.mcpnet/config.json`. On Unix/macOS the file is automatic
 ### Command reference
 
 ```bash
-# - Servers ---------------------------------
+# ── Servers ──────────────────────────────────────────────────────────────────
 mcpnet servers
 mcpnet register --name myserver --server-url https://mcp.example.com/mcp
 mcpnet register --name fs --transport Stdio --command npx \
@@ -907,19 +907,19 @@ mcpnet register --name fs --transport Stdio --command npx \
 mcpnet deregister myserver
 mcpnet refresh
 
-# - Tools ----------------------------------
+# ── Tools ────────────────────────────────────────────────────────────────────
 mcpnet tools [--server <name>]
 mcpnet enable  myserver__search
 mcpnet disable myserver__search
 
-# - Groups ---------------------------------─
+# ── Groups ───────────────────────────────────────────────────────────────────
 mcpnet groups
 mcpnet group create --name search-tools [--description ".."]
 mcpnet group delete search-tools
 mcpnet group add-tool    search-tools myserver__search
 mcpnet group remove-tool search-tools myserver__search
 
-# - Clients ---------------------------------
+# ── Clients ──────────────────────────────────────────────────────────────────
 mcpnet clients
 mcpnet client myagent                              # show detail
 mcpnet client create --name myagent
@@ -928,7 +928,7 @@ mcpnet client regenerate myagent                   # new bearer token
 mcpnet client update myagent --rate-limit 120
 mcpnet client update myagent --enabled false
 
-# - Audit & meta ------------------------------─
+# ── Audit & meta ─────────────────────────────────────────────────────────────
 mcpnet audit
 mcpnet version
 ```
