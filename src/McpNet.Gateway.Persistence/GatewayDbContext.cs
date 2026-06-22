@@ -42,7 +42,7 @@ namespace McpNet.Gateway.Persistence
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                         v => JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, string>>(v, (JsonSerializerOptions?)null)!);
-                // CacheTtlSeconds and AutoRestart are primitive columns — no converter needed.
+                // CacheTtlSeconds and AutoRestart are primitive columns - no converter needed.
             });
 
             modelBuilder.Entity<ToolGroup>(e =>

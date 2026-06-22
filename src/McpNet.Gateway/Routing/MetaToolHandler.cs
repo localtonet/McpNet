@@ -26,17 +26,20 @@ namespace McpNet.Gateway.Routing
         private readonly ToolAggregator _aggregator;
         private readonly IServerRepository _serverRepo;
         private readonly IToolGroupRepository? _groupRepo;
+        private readonly ToolSearchMetrics? _searchMetrics;
 
         public MetaToolHandler(
             ServerRegistry registry,
             ToolAggregator aggregator,
             IServerRepository serverRepo,
-            IToolGroupRepository? groupRepo = null)
+            IToolGroupRepository? groupRepo = null,
+            ToolSearchMetrics? searchMetrics = null)
         {
             _registry = registry;
             _aggregator = aggregator;
             _serverRepo = serverRepo;
             _groupRepo = groupRepo;
+            _searchMetrics = searchMetrics;
         }
 
         public bool IsMetaTool(string name) => name.StartsWith(Prefix, StringComparison.Ordinal);
@@ -61,6 +64,14 @@ namespace McpNet.Gateway.Routing
                 Tool("disable_tool", "Disable an aggregated tool.",
                     Prop("name", "Full tool name (server__tool)", required: true)),
                 Tool("refresh", "Refresh the aggregated tool cache from all upstream servers."),
+                // BM25 semantic search - load only this tool and call it to find what you need.
+                // Reduces token usage by ~99% compared to loading all tool schemas.
+                Tool("retrieve_tools",
+                    "Search for tools by natural language query using BM25 ranking. " +
+                    "Returns the top matching tools with their full schemas. " +
+                    "Use this instead of loading all tools to save token usage.",
+                    Prop("query", "Natural language description of what you want to do", required: true),
+                    Prop("top", "Number of tools to return (default 5, max 20)")),
             };
 
             if (_groupRepo != null)
@@ -90,6 +101,7 @@ namespace McpNet.Gateway.Routing
                     "enable_tool"       => ToggleTool(args, true),
                     "disable_tool"      => ToggleTool(args, false),
                     "refresh"           => await Refresh(ct),
+                    "retrieve_tools"    => RetrieveTools(args),
                     "create_group"      => await CreateGroup(args, ct),
                     "list_groups"       => await ListGroups(ct),
                     _ => Error($"Unknown meta-tool '{fullName}'")
@@ -146,6 +158,32 @@ namespace McpNet.Gateway.Routing
             await _registry.DeleteServerAsync(server.Id, ct).ConfigureAwait(false);
             await _aggregator.RefreshAsync(ct).ConfigureAwait(false);
             return Text($"Deregistered server '{name}'.");
+        }
+
+        private ToolCallResult RetrieveTools(Dictionary<string, object?> args)
+        {
+            var query = Str(args, "query");
+            if (string.IsNullOrWhiteSpace(query)) return Error("'query' is required");
+            var topRaw = Str(args, "top");
+            var topN = int.TryParse(topRaw, out var n) ? Math.Clamp(n, 1, 20) : 5;
+
+            var results = _aggregator.SearchTools(query!, topN);
+
+            // Record metrics
+            _searchMetrics?.Record(_aggregator.GetEnabledTools().Count, results.Count);
+
+            if (results.Count == 0)
+                return Text("No tools matched your query. Try a different description or call mcpnet__list_tools to see all available tools.");
+
+            var view = results.Select(r => new
+            {
+                r.Tool.FullName,
+                r.Tool.ServerName,
+                Description = r.Tool.Definition?.Description,
+                InputSchema = r.Tool.Definition?.InputSchema,
+                Score = Math.Round(r.Score, 3)
+            });
+            return Json(view);
         }
 
         private ToolCallResult ListTools(Dictionary<string, object?> args)

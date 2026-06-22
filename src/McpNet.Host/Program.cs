@@ -100,6 +100,8 @@ builder.Services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
 builder.Services.AddSingleton<McpNet.Gateway.Notifications.SseConnectionManager>();
 // Feature 5: per-tool response cache.
 builder.Services.AddSingleton<McpNet.Gateway.Routing.ToolResponseCache>();
+// BM25 tool-search metrics.
+builder.Services.AddSingleton<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
 
 builder.Services.AddSingleton<ServerRegistry>(sp =>
 {
@@ -123,7 +125,12 @@ builder.Services.AddMcpTelemetry(builder.Configuration);
 
 // ── Meta-tools (manage the gateway over MCP itself) - opt-in ──────────────────
 if (metaTools)
-    builder.Services.AddSingleton<MetaToolHandler>();
+    builder.Services.AddSingleton<MetaToolHandler>(sp => new MetaToolHandler(
+        sp.GetRequiredService<ServerRegistry>(),
+        sp.GetRequiredService<ToolAggregator>(),
+        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
+        sp.GetService<McpNet.Gateway.Abstractions.IToolGroupRepository>(),
+        sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>()));
 
 builder.Services.AddSingleton<GatewayRequestRouter>(sp =>
     new GatewayRequestRouter(

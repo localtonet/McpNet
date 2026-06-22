@@ -93,6 +93,13 @@ namespace McpNet.Gateway.Standalone.Management
                 }
             }
 
+            // GET /api/servers/quarantine - list quarantined servers
+            if (segs.Length == 3 && Seg(segs, 2) == "quarantine" && method == "GET")
+            {
+                var all = await repo.GetAllAsync(ct);
+                await WriteJsonAsync(ctx, 200, all.Where(s => s.Quarantined).Select(ServerDto), ct); return;
+            }
+
             if (!TryGuid(segs, 2, out var id)) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
             var s3 = Seg(segs, 3); var s4 = Seg(segs, 4); var s5 = Seg(segs, 5);
 
@@ -143,6 +150,24 @@ namespace McpNet.Gateway.Standalone.Management
             }
             if (segs.Length == 4 && s3 == "health"      && method == "GET") { await HandleServerHealthAsync(ctx, id, repo, registry, ct); return; }
             if (segs.Length == 4 && s3 == "stdio-probe" && method == "GET") { await HandleStdioProbeAsync(ctx, id, repo, ct); return; }
+            if (segs.Length == 4 && s3 == "approve" && method == "POST")
+            {
+                var s = await repo.GetByIdAsync(id, ct);
+                if (s is null) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
+                s.Quarantined = false;
+                await registry.UpdateServerAsync(s, ct);
+                FireAndForget(() => aggregator.RefreshAsync());
+                await WriteJsonAsync(ctx, 200, ServerDto(s), ct); return;
+            }
+            if (segs.Length == 4 && s3 == "quarantine" && method == "POST")
+            {
+                var s = await repo.GetByIdAsync(id, ct);
+                if (s is null) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
+                s.Quarantined = true;
+                await registry.UpdateServerAsync(s, ct);
+                FireAndForget(() => aggregator.RefreshAsync());
+                await WriteJsonAsync(ctx, 200, ServerDto(s), ct); return;
+            }
 
             await WriteErrorAsync(ctx, 404, "Not found", ct);
         }
@@ -284,6 +309,50 @@ namespace McpNet.Gateway.Standalone.Management
             }
             if (s2 == "diagnostics" && method == "GET")
             { await WriteJsonAsync(ctx, 200, agg.GetLastRefreshDiagnostics().Select(d => new { d.ServerId, d.ServerName, d.TransportType, d.Status, d.Success, d.ToolCount, d.DurationMs, d.ErrorMessage, d.Timestamp }), ct); return; }
+
+            if (s2 == "version" && method == "GET")
+            {
+                await WriteJsonAsync(ctx, 200, new
+                {
+                    version = agg.ToolsVersion,
+                    lastRefreshedAt = agg.LastRefreshedAt == DateTime.MinValue ? (DateTime?)null : agg.LastRefreshedAt
+                }, ct); return;
+            }
+            if (s2 == "search-metrics" && method == "GET")
+            {
+                var m = _sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
+                if (m is null) { await WriteJsonAsync(ctx, 200, new { enabled = false }, ct); return; }
+                await WriteJsonAsync(ctx, 200, new
+                {
+                    enabled = true,
+                    totalCalls = m.TotalCalls,
+                    totalResultsReturned = m.TotalResultsReturned,
+                    estimatedTokensSaved = m.EstimatedTokensSaved,
+                    averageResultsPerCall = Math.Round(m.AverageResultsPerCall, 1),
+                    averageToolsAtCall = Math.Round(m.AverageToolsAtCall, 1),
+                    tokensPerSchema = McpNet.Gateway.Aggregation.ToolSearchMetrics.TokensPerSchema,
+                    firstCallAt = m.FirstCallAt == DateTime.MinValue ? (DateTime?)null : m.FirstCallAt,
+                    lastCallAt  = m.LastCallAt  == DateTime.MinValue ? (DateTime?)null : m.LastCallAt
+                }, ct); return;
+            }
+            if (s2 == "search" && method == "GET")
+            {
+                var q = ctx.Request.QueryString["q"] ?? "";
+                if (string.IsNullOrWhiteSpace(q)) { await WriteErrorAsync(ctx, 400, "q is required", ct); return; }
+                var results = agg.SearchTools(q.Trim(), 10);
+                await WriteJsonAsync(ctx, 200, new
+                {
+                    query = q,
+                    totalTools = agg.GetEnabledTools().Count,
+                    results = results.Select(r => new
+                    {
+                        r.Tool.FullName,
+                        r.Tool.ServerName,
+                        Description = r.Tool.Definition?.Description,
+                        Score = Math.Round(r.Score, 3)
+                    })
+                }, ct); return;
+            }
 
             if (s2 == "call" && method == "POST")
             {
@@ -495,7 +564,7 @@ namespace McpNet.Gateway.Standalone.Management
 
         // ── DTO helpers ───────────────────────────────────────────────────────
 
-        private static object ServerDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.StdioCommand, s.Enabled, s.CreatedAt, s.UpdatedAt, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null };
+        private static object ServerDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.StdioCommand, s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null };
         private static object ServerDetailDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.Enabled, s.CreatedAt, s.UpdatedAt, s.StdioCommand, s.StdioArgs, s.StdioWorkingDirectory, StdioEnvVarKeys = s.StdioEnvVars.Keys.ToList(), CustomHeaders = s.CustomHeaders, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? new { s.OAuth.Enabled, s.OAuth.TokenUrl, s.OAuth.ClientId, s.OAuth.Scopes } : null };
         private static object ClientDto(McpClient c) => new { c.Id, c.Name, c.Enabled, c.CreatedAt, AllowedServers = c.AllowedServerIds.Count, AllowedGroups = c.AllowedGroupIds.Count };
         private static object ClientDetailDto(McpClient c) => new { c.Id, c.Name, c.Enabled, c.CreatedAt, c.AllowedServerIds, c.AllowedGroupIds, c.RateLimitPerMinute, c.ServerRateLimits, AllowedServers = c.AllowedServerIds.Count, AllowedGroups = c.AllowedGroupIds.Count };

@@ -7,7 +7,7 @@ namespace McpNet.Gateway.Routing
     /// <summary>
     /// Validates tool call arguments against a tool's <see cref="McpToolInputSchema"/>.
     /// Checks required fields and primitive type constraints (string/number/integer/boolean/
-    /// array/object). Complex keywords (anyOf, allOf, $ref, pattern) are not enforced —
+    /// array/object). Complex keywords (anyOf, allOf, $ref, pattern) are not enforced -
     /// those are left to the upstream server.
     /// Returns <c>null</c> when valid, or an English error message on first violation.
     /// </summary>

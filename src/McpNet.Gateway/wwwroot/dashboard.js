@@ -104,6 +104,7 @@ const PAGE_META = {
   groups:   ['Groups', 'Logical groupings of tools'],
   clients:  ['Clients', 'API clients & access tokens (enterprise)'],
   audit:    ['Audit Log', 'Recent gateway request history'],
+  security: ['Security', 'Quarantine management & BM25 token savings'],
   settings: ['Settings', 'Gateway configuration, backup & restore']
 };
 
@@ -259,14 +260,15 @@ function reloadActive() {
 }
 
 function loadTab(name) {
-  if (name === 'overview') loadOverview();
-  if (name === 'servers')  loadServers();
-  if (name === 'catalog')  loadCatalog();
-  if (name === 'tools')    loadTools();
-  if (name === 'groups')   loadGroups();
-  if (name === 'clients')  loadClients();
-  if (name === 'audit')    loadAudit();
-  if (name === 'settings') loadSettings();
+  if (name === 'overview')  loadOverview();
+  if (name === 'servers')   loadServers();
+  if (name === 'catalog')   loadCatalog();
+  if (name === 'tools')     loadTools();
+  if (name === 'groups')    loadGroups();
+  if (name === 'clients')   loadClients();
+  if (name === 'audit')     loadAudit();
+  if (name === 'security')  loadSecurity();
+  if (name === 'settings')  loadSettings();
 }
 
 function switchTab(name, btn) {
@@ -294,6 +296,16 @@ async function loadOverview() {
   ]);
   servers = s || servers; tools = t || tools; groups = g || groups; clients = c || clients; auditLogs = a || auditLogs;
   document.getElementById('mServers').textContent = servers.length;
+  const quarantinedCount = servers.filter(s => s.quarantined).length;
+  document.getElementById('mServersQuarantined').textContent = quarantinedCount;
+  const qAlert = document.getElementById('quarantineAlert');
+  if (quarantinedCount > 0) {
+    qAlert.style.display = 'flex';
+    document.getElementById('quarantineAlertCount').textContent = quarantinedCount + ' server' + (quarantinedCount > 1 ? 's' : '');
+  } else {
+    qAlert.style.display = 'none';
+  }
+  setCount('security', quarantinedCount);
   document.getElementById('mTools').textContent = tools.length;
   document.getElementById('mToolsEnabled').textContent = tools.filter(x => x.enabled).length;
   document.getElementById('mGroups').textContent = groups.length;
@@ -344,13 +356,21 @@ async function applyPersistedHealth() {
 function renderServers() {
   const tbody = document.getElementById('serverTableBody');
   setCount('servers', servers.length);
-  if (!servers.length) { tbody.innerHTML = emptyRow(7, 'No servers registered', 'Add an upstream MCP server to get started.'); return; }
-  tbody.innerHTML = servers.map(s => `
+  if (!servers.length) { tbody.innerHTML = emptyRow(8, 'No servers registered', 'Add an upstream MCP server to get started.'); return; }
+  tbody.innerHTML = servers.map(s => {
+    const quarantinedChip = s.quarantined
+      ? `<span class="chip orange">Quarantined</span>`
+      : `<span class="chip green">Active</span>`;
+    const approveBtn = s.quarantined
+      ? `<button class="btn sm ghost" style="color:var(--success);border-color:rgba(34,197,94,.4)" onclick="approveServer('${s.id}', '${esc(s.name)}')">✓ Approve</button>`
+      : `<button class="icon-btn" title="Quarantine" onclick="quarantineServer('${s.id}', '${esc(s.name)}')" style="color:var(--warning)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>`;
+    return `
     <tr>
       <td><strong>${esc(s.name)}</strong></td>
       <td><code>${esc(s.url || s.stdioCommand || '')}</code></td>
       <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
       <td>${s.hasAuth ? '<span class="chip green">Auth</span>' : '<span class="chip gray plain">None</span>'}</td>
+      <td>${quarantinedChip}</td>
       <td>
         <span id="health-${s.id}" class="chip gray plain">-</span>
         <button class="btn ghost sm" onclick="checkHealth('${s.id}')" style="padding:3px 8px;margin-left:4px">Ping</button>
@@ -362,11 +382,12 @@ function renderServers() {
         </label>
       </td>
       <td><div class="row-actions">
+        ${approveBtn}
         <button class="icon-btn" title="Edit server" onclick="openEditServer('${s.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="icon-btn danger" title="Delete" onclick="deleteServer('${s.id}', '${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ── Server Health Check ────────────────────────────────────────
@@ -1235,6 +1256,139 @@ async function importConfig(input) {
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Security (Quarantine + BM25 Metrics) ─────────────────────
+async function loadSecurity() {
+  const [allServers, metrics] = await Promise.all([
+    api('GET', '/servers'),
+    api('GET', '/tools/search-metrics')
+  ]);
+  servers = allServers || servers;
+  renderQuarantineTable(servers.filter(s => s.quarantined));
+  renderSearchMetrics(metrics);
+}
+
+function renderQuarantineTable(quarantined) {
+  const tbody = document.getElementById('quarantineTableBody');
+  setCount('security', quarantined.length);
+  if (!quarantined.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="empty-title">No quarantined servers</div>
+      <div>New servers will appear here for review before connecting.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = quarantined.map(s => `
+    <tr>
+      <td><strong>${esc(s.name)}</strong></td>
+      <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
+      <td><code>${esc(s.url || s.stdioCommand || '-')}</code></td>
+      <td style="font-size:12px;white-space:nowrap">${s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</td>
+      <td><div class="row-actions">
+        <button class="btn sm" style="background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 4px 14px rgba(34,197,94,.28)" onclick="approveServer('${s.id}', '${esc(s.name)}')">✓ Approve</button>
+        <button class="icon-btn danger" title="Delete server" onclick="deleteServer('${s.id}', '${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function fmt(n) {
+  if (n == null || n < 0) return '-';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'k';
+  return String(n);
+}
+
+function renderSearchMetrics(m) {
+  if (!m || !m.enabled) {
+    document.getElementById('smTotalCalls').textContent = '-';
+    document.getElementById('smTokensSaved').textContent = '-';
+    document.getElementById('smAvgResults').textContent = '-';
+    document.getElementById('smAvgTools').textContent = '-';
+    return;
+  }
+  document.getElementById('smTokensPerSchema').textContent = m.tokensPerSchema || 150;
+  document.getElementById('smTotalCalls').textContent = fmt(m.totalCalls);
+  document.getElementById('smTokensSaved').textContent = fmt(m.estimatedTokensSaved);
+  document.getElementById('smAvgResults').textContent = m.totalCalls > 0 ? m.averageResultsPerCall.toFixed(1) : '-';
+  document.getElementById('smAvgTools').textContent   = m.totalCalls > 0 ? m.averageToolsAtCall.toFixed(0)   : '-';
+}
+
+async function approveServer(id, name) {
+  const r = await api('POST', '/servers/' + id + '/approve');
+  if (!r) return;
+  toast('Approved', name + ' is now active. Tool refresh started.', 'success');
+  const sv = await api('GET', '/servers');
+  if (sv) { servers = sv; renderServers(); }
+  renderQuarantineTable(servers.filter(s => s.quarantined));
+  setCount('security', servers.filter(s => s.quarantined).length);
+  // Update overview quarantine alert
+  const qc = servers.filter(s => s.quarantined).length;
+  const qAlert = document.getElementById('quarantineAlert');
+  if (qAlert) qAlert.style.display = qc > 0 ? 'flex' : 'none';
+  const qCount = document.getElementById('mServersQuarantined');
+  if (qCount) qCount.textContent = qc;
+}
+
+async function quarantineServer(id, name) {
+  if (!(await confirmDialog({ title: 'Quarantine server', message: `"${name}" will stop connecting and exposing tools until approved again.`, okText: 'Quarantine', danger: false }))) return;
+  const r = await api('POST', '/servers/' + id + '/quarantine');
+  if (!r) return;
+  toast('Quarantined', name + ' is now quarantined.', 'warning');
+  const sv = await api('GET', '/servers');
+  if (sv) { servers = sv; renderServers(); }
+  setCount('security', servers.filter(s => s.quarantined).length);
+}
+
+// ── BM25 Live Search Tester ───────────────────────────────────
+let _bm25SearchTimer = null;
+function onBm25SearchInput() {
+  if (_bm25SearchTimer) clearTimeout(_bm25SearchTimer);
+  _bm25SearchTimer = setTimeout(runBm25Search, 350);
+}
+
+async function runBm25Search() {
+  const q = (document.getElementById('bm25SearchInput')?.value || '').trim();
+  const out = document.getElementById('bm25Results');
+  if (!out) return;
+  if (!q) { out.innerHTML = ''; return; }
+  out.innerHTML = '<span class="spinner"></span>';
+  try {
+    const r = await fetch(BASE + '/api/tools/search?' + new URLSearchParams({ q }), { headers: headers() });
+    if (!r.ok) { out.innerHTML = `<span style="color:var(--danger)">Error ${r.status}</span>`; return; }
+    const data = await r.json();
+    const results = data.results || [];
+    if (!results.length) {
+      out.innerHTML = `<div style="color:var(--muted);font-size:13px">No tools matched "<strong>${esc(q)}</strong>" in ${data.totalTools || 0} total tools.</div>`;
+      return;
+    }
+    const maxScore = results[0].score || 1;
+    out.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        Top ${results.length} of ${data.totalTools} tools - agent loads <strong>1</strong> schema instead of <strong>${data.totalTools}</strong> (~<strong>${Math.max(0, data.totalTools - 1 - results.length) * 150}</strong> tokens saved this call)
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Tool</th><th>Server</th><th>BM25 Score</th><th>Match</th></tr></thead>
+          <tbody>${results.map(r => {
+            const pct = Math.round((r.score / maxScore) * 100);
+            return `<tr>
+              <td><code>${esc(r.fullName)}</code></td>
+              <td>${esc(r.serverName)}</td>
+              <td>${r.score.toFixed(3)}</td>
+              <td>
+                <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;width:80px">
+                  <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:4px"></div>
+                </div>
+              </td>
+            </tr>
+            <tr><td colspan="4" style="padding:4px 18px 10px;color:var(--muted);font-size:12px">${esc(r.description || '')}</td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    out.innerHTML = `<span style="color:var(--danger)">Error: ${esc(e.message)}</span>`;
+  }
 }
 
 // Initial load
