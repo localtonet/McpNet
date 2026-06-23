@@ -9,7 +9,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy solution + project files first for layer-cached restore
-COPY NETMCP.slnx ./
+COPY McpNet.slnx ./
 COPY src/ ./src/
 COPY tests/ ./tests/
 
