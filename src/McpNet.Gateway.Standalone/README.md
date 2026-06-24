@@ -9,7 +9,7 @@ Uses `System.Net.HttpListener` - Kestrel and `Microsoft.AspNetCore` are **not re
 ## Installation
 
 ```xml
-<PackageReference Include="McpNet.Gateway.Standalone" Version="1.0.0" />
+<PackageReference Include="McpNet.Gateway.Standalone" Version="1.0.3" />
 ```
 
 ---
