@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using McpNet.Gateway.Abstractions;
 using McpNet.Gateway.Aggregation;
@@ -79,12 +78,6 @@ switch (persistence)
         break;
 }
 
-// IToolStateStore is registered by AddMcpJsonPersistence.
-// For DB backends it is absent, so fall back to a small JSON sidecar file so that
-// tool enable/disable state persists across restarts regardless of persistence backend.
-builder.Services.TryAddSingleton<McpNet.Gateway.Abstractions.IToolStateStore>(
-    new McpNet.Gateway.Persistence.Json.JsonToolStateStore(dataDir));
-
 // ── Gateway core services ─────────────────────────────────────────────────────
 builder.Services.AddMcpGateway(o =>
 {
@@ -92,58 +85,19 @@ builder.Services.AddMcpGateway(o =>
     o.AuthOptions.AdminToken  = adminToken;
 });
 
-// Managed HttpClient factory (connection-pool reuse across upstream calls).
-builder.Services.AddHttpClient();
-// In-memory sliding-window rate limiter (replaces audit-log scan on every call).
-builder.Services.AddSingleton<McpNet.Gateway.Routing.GatewayRateLimiter>();
-// Feature 2: SSE notification manager for push notifications.
-builder.Services.AddSingleton<McpNet.Gateway.Notifications.SseConnectionManager>();
-// Feature 5: per-tool response cache.
-builder.Services.AddSingleton<McpNet.Gateway.Routing.ToolResponseCache>();
-// BM25 tool-search metrics.
-builder.Services.AddSingleton<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
-
-builder.Services.AddSingleton<ServerRegistry>(sp =>
-{
-    // Wire the IHttpClientFactory so upstream HttpClients share the managed connection pool.
-    var factory = sp.GetService<System.Net.Http.IHttpClientFactory>();
-    Func<System.Net.Http.HttpClient>? httpFactory = factory != null ? () => factory.CreateClient("McpUpstream") : null;
-    return new ServerRegistry(
-        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
-        httpFactory);
-});
-builder.Services.AddSingleton<ToolAggregator>(sp =>
-    new ToolAggregator(
-        sp.GetRequiredService<ServerRegistry>(),
-        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
-        sp.GetService<McpNet.Gateway.Abstractions.IToolStateStore>()));
-builder.Services.AddSingleton<ToolGroupManager>();
-builder.Services.AddSingleton(new GatewayCatalogService(dataDir));
-
 // ── Optional OpenTelemetry (default off; audit log is the default observability) ──
 builder.Services.AddMcpTelemetry(builder.Configuration);
 
+builder.Services.AddSingleton<ServerRegistry>();
+builder.Services.AddSingleton<ToolAggregator>();
+builder.Services.AddSingleton<ToolGroupManager>();
+builder.Services.AddSingleton(new GatewayCatalogService(dataDir));
+
 // ── Meta-tools (manage the gateway over MCP itself) - opt-in ──────────────────
 if (metaTools)
-    builder.Services.AddSingleton<MetaToolHandler>(sp => new MetaToolHandler(
-        sp.GetRequiredService<ServerRegistry>(),
-        sp.GetRequiredService<ToolAggregator>(),
-        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
-        sp.GetService<McpNet.Gateway.Abstractions.IToolGroupRepository>(),
-        sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>()));
+    builder.Services.AddSingleton<MetaToolHandler>();
 
-builder.Services.AddSingleton<GatewayRequestRouter>(sp =>
-    new GatewayRequestRouter(
-        sp.GetRequiredService<ToolAggregator>(),
-        sp.GetRequiredService<ServerRegistry>(),
-        sp.GetRequiredService<McpNet.Gateway.Abstractions.IServerRepository>(),
-        sp.GetRequiredService<ToolGroupManager>(),
-        sp.GetRequiredService<McpNet.Gateway.Sessions.GatewaySessionManager>(),
-        sp.GetService<McpNet.Gateway.Abstractions.IClientRepository>(),
-        sp.GetService<McpNet.Gateway.Abstractions.IAuditLogRepository>(),
-        sp.GetService<MetaToolHandler>(),
-        sp.GetService<McpNet.Gateway.Routing.GatewayRateLimiter>(),
-        sp.GetService<McpNet.Gateway.Routing.ToolResponseCache>()));
+builder.Services.AddSingleton<GatewayRequestRouter>();
 
 builder.Services.AddHostedService<ToolRefreshBackgroundService>();
 
@@ -158,9 +112,6 @@ app.MapMcpManagement("/api");
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 app.MapMcpDashboard("/dashboard");
-
-// ── Feature 6: Prometheus scraping endpoint (opt-in) ─────────────────────────
-app.MapPrometheusIfEnabled();
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 app.MapGet("/", () => Results.Redirect("/dashboard"));

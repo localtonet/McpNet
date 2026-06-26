@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using McpNet.Core.Serialization;
 
 namespace McpNet.Core.Capabilities
 {
@@ -19,6 +20,7 @@ namespace McpNet.Core.Capabilities
     public class McpToolInputSchema
     {
         [JsonPropertyName("type")]
+        [JsonConverter(typeof(JsonSchemaTypeConverter))]
         public string Type { get; set; } = "object";
 
         [JsonPropertyName("properties")]
@@ -33,6 +35,7 @@ namespace McpNet.Core.Capabilities
     public class McpSchemaProperty
     {
         [JsonPropertyName("type")]
+        [JsonConverter(typeof(JsonSchemaTypeConverter))]
         public string Type { get; set; } = "string";
 
         [JsonPropertyName("description")]
@@ -42,6 +45,14 @@ namespace McpNet.Core.Capabilities
         [JsonPropertyName("enum")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string>? Enum { get; set; }
+
+        /// <summary>
+        /// Element schema for <c>array</c> properties. Required by JSON Schema (and enforced by
+        /// strict MCP clients such as VS Code) whenever <see cref="Type"/> is <c>"array"</c>.
+        /// </summary>
+        [JsonPropertyName("items")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public McpSchemaProperty? Items { get; set; }
     }
 
     public class McpPrompt

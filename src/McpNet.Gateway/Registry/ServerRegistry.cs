@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using McpNet.Core.Capabilities;
@@ -15,20 +14,12 @@ namespace McpNet.Gateway.Registry
     public class ServerRegistry : IDisposable
     {
         private readonly IServerRepository _repo;
-        /// <summary>
-        /// Optional factory that creates a managed <see cref="HttpClient"/> for each new upstream
-        /// client. When null, <see cref="McpUpstreamClient"/> creates its own <c>new HttpClient()</c>.
-        /// Supply via <see cref="System.Net.Http.IHttpClientFactory.CreateClient"/> in the host.
-        /// </summary>
-        private readonly Func<HttpClient>? _httpFactory;
         private readonly ConcurrentDictionary<Guid, McpUpstreamClient> _clients = new();
-        private readonly object _createLock = new();
         private bool _disposed;
 
-        public ServerRegistry(IServerRepository repo, Func<HttpClient>? httpFactory = null)
+        public ServerRegistry(IServerRepository repo)
         {
             _repo = repo;
-            _httpFactory = httpFactory;
         }
 
         public async Task<List<RegisteredServer>> GetAllServersAsync(CancellationToken ct = default)
@@ -55,23 +46,7 @@ namespace McpNet.Gateway.Registry
 
         public McpUpstreamClient GetOrCreateClient(RegisteredServer server)
         {
-            // Fast path - already exists.
-            if (_clients.TryGetValue(server.Id, out var existing))
-                return existing;
-
-            // Slow path - serialize creation to prevent duplicate stdio processes.
-            // ConcurrentDictionary.GetOrAdd can invoke the factory on multiple threads
-            // simultaneously; for stdio servers this would start two child processes where
-            // only one would ever be used or disposed.
-            lock (_createLock)
-            {
-                if (_clients.TryGetValue(server.Id, out existing))
-                    return existing;
-
-                var client = new McpUpstreamClient(server, _httpFactory?.Invoke());
-                _clients[server.Id] = client;
-                return client;
-            }
+            return _clients.GetOrAdd(server.Id, _ => new McpUpstreamClient(server));
         }
 
         public void Dispose()

@@ -9,7 +9,7 @@
     <!-- NuGet packaging -->
     <IsPackable>true</IsPackable>
     <PackageId>McpNet.Gateway.Standalone</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.0</Version>
     <Description>
       Self-contained MCP Gateway using System.Net.HttpListener.
       No ASP.NET Core dependency - embed in any .NET 8 application.

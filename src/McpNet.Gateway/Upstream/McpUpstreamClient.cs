@@ -15,6 +15,7 @@ using McpNet.Core.Capabilities;
 using McpNet.Core.Protocol;
 using McpNet.Core.Serialization;
 using McpNet.Gateway.Models;
+using McpNet.Gateway.Upstream.Rest;
 
 namespace McpNet.Gateway.Upstream
 {
@@ -23,6 +24,11 @@ namespace McpNet.Gateway.Upstream
         private readonly RegisteredServer _server;
         private readonly HttpClient _http;
         private readonly OAuthTokenProvider? _oauth;
+        // REST/OpenAPI upstream: delegate all operations to this connector instead of using the MCP protocol.
+        private RestUpstreamConnector? _restConnector;
+        // Session ID returned by the server on initialize (Mcp-Session-Id header).
+        // Required for stateful StreamableHttp MCP servers on all subsequent requests.
+        private string? _sessionId;
         // Serializes all stdio reads/writes so requests don't interleave.
         private readonly SemaphoreSlim _stdioIoLock = new SemaphoreSlim(1, 1);
         // Serializes ConnectAsync so two concurrent callers don't double-initialize.
@@ -47,6 +53,7 @@ namespace McpNet.Gateway.Upstream
         {
             get
             {
+                if (_restConnector != null) return _restConnector.IsConnected;
                 if (!_isConnectedFlag) return false;
                 if (_server.TransportType == UpstreamTransportType.Stdio)
                     return _stdioProcess != null && !_stdioProcess.HasExited;
@@ -60,6 +67,18 @@ namespace McpNet.Gateway.Upstream
             _server = server;
             _http = http ?? new HttpClient();
             _http.Timeout = TimeSpan.FromSeconds(30);
+
+            if (server.TransportType == UpstreamTransportType.RestOpenApi)
+            {
+                // For REST upstreams we don't use MCP JSON-RPC at all.
+                // Auth headers are set on the shared HttpClient that RestUpstreamConnector will use.
+                if (!string.IsNullOrEmpty(server.BearerToken))
+                    _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", server.BearerToken);
+                foreach (var h in server.CustomHeaders)
+                    _http.DefaultRequestHeaders.TryAddWithoutValidation(h.Key, h.Value);
+                _restConnector = new RestUpstreamConnector(server, _http);
+                return;
+            }
 
             if (server.OAuth is { Enabled: true } oauth && !string.IsNullOrEmpty(oauth.TokenUrl))
             {
@@ -83,43 +102,66 @@ namespace McpNet.Gateway.Upstream
 
         public async Task<InitializeResult?> ConnectAsync(CancellationToken ct = default)
         {
-            // Guard against double-initialization: if already connected (e.g. a concurrent
-            // RefreshAsync already called ConnectAsync) return early.  Re-sending initialize
-            // to the same stdio process corrupts its message stream.
+            // REST upstream: delegate to the dedicated connector.
+            if (_restConnector != null)
+            {
+                await _restConnector.ConnectAsync(ct).ConfigureAwait(false);
+                return null;
+            }
+
+            // Fast path — already connected.
             if (IsConnected) return null;
 
-            var initRequest = new JsonRpcRequest
+            // Serialize: prevent two concurrent callers from both sending initialize
+            // to the same stdio process (double-initialize corrupts message stream).
+            await _connectLock.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                Id = NextId(),
-                Method = McpMethods.Initialize,
-                Params = new InitializeParams
+                // Double-check inside the lock.
+                if (IsConnected) return null;
+
+                var initRequest = new JsonRpcRequest
                 {
-                    ProtocolVersion = McpProtocolVersion.Current,
-                    Capabilities = new ClientCapabilities(),
-                    ClientInfo = new McpImplementation { Name = "McpNet.Gateway", Version = "1.0.0" }
-                }
-            };
+                    Id = NextId(),
+                    Method = McpMethods.Initialize,
+                    Params = new InitializeParams
+                    {
+                        ProtocolVersion = McpProtocolVersion.Current,
+                        Capabilities = new ClientCapabilities(),
+                        ClientInfo = new McpImplementation { Name = "McpNet.Gateway", Version = "1.0.0" }
+                    }
+                };
 
-            JsonRpcResponse result;
-            if (_server.TransportType == UpstreamTransportType.Stdio)
-                result = await SendRequestStdioAsync(initRequest, ct).ConfigureAwait(false);
-            else
-                result = await SendRequestAsync(initRequest, ct).ConfigureAwait(false);
+                JsonRpcResponse result;
+                if (_server.TransportType == UpstreamTransportType.Stdio)
+                    result = await SendRequestStdioAsync(initRequest, ct).ConfigureAwait(false);
+                else
+                    result = await SendRequestAsync(initRequest, ct).ConfigureAwait(false);
 
-            if (result.Error != null)
-                return null;
+                if (result.Error != null)
+                    return null;
 
-            if (_server.TransportType == UpstreamTransportType.Stdio)
-                await SendNotificationStdioAsync(new JsonRpcNotification { Method = McpMethods.Initialized }, ct).ConfigureAwait(false);
-            else
-                await SendNotificationAsync(new JsonRpcNotification { Method = McpMethods.Initialized }, ct).ConfigureAwait(false);
+                if (_server.TransportType == UpstreamTransportType.Stdio)
+                    await SendNotificationStdioAsync(new JsonRpcNotification { Method = McpMethods.Initialized }, ct).ConfigureAwait(false);
+                else
+                    await SendNotificationAsync(new JsonRpcNotification { Method = McpMethods.Initialized }, ct).ConfigureAwait(false);
 
-            IsConnected = true;
-            return McpJsonOptions.Convert<InitializeResult>(result.Result);
+                IsConnected = true;
+                return McpJsonOptions.Convert<InitializeResult>(result.Result);
+            }
+            finally
+            {
+                _connectLock.Release();
+            }
         }
 
         public async Task<List<McpTool>> ListToolsAsync(CancellationToken ct = default)
         {
+            if (_restConnector != null)
+            {
+                if (!_restConnector.IsConnected) await _restConnector.ConnectAsync(ct).ConfigureAwait(false);
+                return _restConnector.ListTools();
+            }
             var req = new JsonRpcRequest { Id = NextId(), Method = McpMethods.ToolsList };
             var resp = await SendRequestAsync(req, ct).ConfigureAwait(false);
             if (resp.Error != null) return new List<McpTool>();
@@ -153,6 +195,11 @@ namespace McpNet.Gateway.Upstream
 
         public async Task<ToolCallResult> CallToolAsync(string toolName, Dictionary<string, object?>? arguments, CancellationToken ct = default)
         {
+            if (_restConnector != null)
+            {
+                if (!_restConnector.IsConnected) await _restConnector.ConnectAsync(ct).ConfigureAwait(false);
+                return await _restConnector.CallToolAsync(toolName, arguments, ct).ConfigureAwait(false);
+            }
             var req = new JsonRpcRequest
             {
                 Id = NextId(),
@@ -217,8 +264,15 @@ namespace McpNet.Gateway.Upstream
             httpRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             httpRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
             httpRequest.Headers.TryAddWithoutValidation(McpHeaders.ProtocolVersion, McpProtocolVersion.Current);
+            // Include the session ID on all requests after the initial handshake.
+            if (_sessionId != null)
+                httpRequest.Headers.TryAddWithoutValidation(McpHeaders.SessionId, _sessionId);
 
             using var httpResponse = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
+
+            // Capture the session ID returned by the server on the initialize response.
+            if (_sessionId == null && httpResponse.Headers.TryGetValues(McpHeaders.SessionId, out var vals))
+                _sessionId = System.Linq.Enumerable.FirstOrDefault(vals);
 
             if (!httpResponse.IsSuccessStatusCode)
                 return ErrorResponse(request.Id, (int)httpResponse.StatusCode, $"HTTP {httpResponse.StatusCode}");
@@ -278,6 +332,8 @@ namespace McpNet.Gateway.Upstream
             using var req = new HttpRequestMessage(HttpMethod.Post, _server.Url) { Content = content };
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Headers.TryAddWithoutValidation(McpHeaders.ProtocolVersion, McpProtocolVersion.Current);
+            if (_sessionId != null)
+                req.Headers.TryAddWithoutValidation(McpHeaders.SessionId, _sessionId);
             await _http.SendAsync(req, ct).ConfigureAwait(false);
         }
 
@@ -350,73 +406,72 @@ namespace McpNet.Gateway.Upstream
 
         private async Task EnsureStdioProcessStartedAsync(CancellationToken ct)
         {
+            // Fast path — process is already running.
             if (_stdioProcess != null && !_stdioProcess.HasExited && _stdioIn != null && _stdioOut != null)
                 return;
 
-            // Serialize process startup so concurrent ConnectAsync calls (e.g. two
-            // concurrent RefreshAsync tasks for the same server) don't start two processes.
-            await _stdioIoLock.WaitAsync(ct).ConfigureAwait(false);
-            try
+            // ConnectAsync is already holding _connectLock when this is called, so
+            // concurrent process startup is already serialized. No extra lock needed here.
+
+            if (string.IsNullOrWhiteSpace(_server.StdioCommand))
+                throw new InvalidOperationException("Stdio command is not configured.");
+
+            var resolvedCommand = StdioCommandHelper.ResolveCommandPath(_server.StdioCommand);
+            var commandExt = Path.GetExtension(resolvedCommand);
+            var runViaCmd = OperatingSystem.IsWindows() &&
+                            (string.Equals(commandExt, ".cmd", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(commandExt, ".bat", StringComparison.OrdinalIgnoreCase));
+
+            var psi = new ProcessStartInfo
             {
-                // Double-check inside the lock
-                if (_stdioProcess != null && !_stdioProcess.HasExited && _stdioIn != null && _stdioOut != null)
-                    return;
+                FileName = runViaCmd ? "cmd.exe" : resolvedCommand,
+                Arguments = runViaCmd
+                    ? BuildCmdWrapperArguments(resolvedCommand, _server.StdioArgs)
+                    : BuildArguments(_server.StdioArgs),
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardInputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
 
-                if (string.IsNullOrWhiteSpace(_server.StdioCommand))
-                    throw new InvalidOperationException("Stdio command is not configured.");
+            if (!string.IsNullOrWhiteSpace(_server.StdioWorkingDirectory))
+                psi.WorkingDirectory = _server.StdioWorkingDirectory;
 
-                var resolvedCommand = StdioCommandHelper.ResolveCommandPath(_server.StdioCommand);
-                var commandExt = Path.GetExtension(resolvedCommand);
-                var runViaCmd = OperatingSystem.IsWindows() &&
-                                (string.Equals(commandExt, ".cmd", StringComparison.OrdinalIgnoreCase) ||
-                                 string.Equals(commandExt, ".bat", StringComparison.OrdinalIgnoreCase));
+            // Inject server-specific environment variables (e.g. API keys).
+            // These are merged on top of the current process environment so the child
+            // inherits PATH, TEMP, etc., but gets the extra secrets it needs.
+            if (_server.StdioEnvVars != null && _server.StdioEnvVars.Count > 0)
+            {
+                foreach (var kv in _server.StdioEnvVars)
+                    psi.Environment[kv.Key] = kv.Value;
+            }
 
-                var psi = new ProcessStartInfo
+            var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            if (!proc.Start())
+                throw new InvalidOperationException("Failed to start stdio process.");
+
+            _stdioProcess = proc;
+            _stdioIn = proc.StandardInput.BaseStream;
+            _stdioOut = proc.StandardOutput.BaseStream;
+
+            _ = Task.Run(async () =>
+            {
+                try
                 {
-                    FileName = runViaCmd ? "cmd.exe" : resolvedCommand,
-                    Arguments = runViaCmd
-                        ? BuildCmdWrapperArguments(resolvedCommand, _server.StdioArgs)
-                        : BuildArguments(_server.StdioArgs),
-                    UseShellExecute = false,
-                    RedirectStandardInput = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardInputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                };
-
-                if (!string.IsNullOrWhiteSpace(_server.StdioWorkingDirectory))
-                    psi.WorkingDirectory = _server.StdioWorkingDirectory;
-
-                var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
-                if (!proc.Start())
-                    throw new InvalidOperationException("Failed to start stdio process.");
-
-                _stdioProcess = proc;
-                _stdioIn = proc.StandardInput.BaseStream;
-                _stdioOut = proc.StandardOutput.BaseStream;
-
-                _ = Task.Run(async () =>
-                {
-                    try
+                    while (!proc.HasExited)
                     {
-                        while (!proc.HasExited)
-                        {
-                            var line = await proc.StandardError.ReadLineAsync().ConfigureAwait(false);
-                            if (line == null) break;
-                            _stderrTail.Enqueue(line);
-                            while (_stderrTail.Count > 20 && _stderrTail.TryDequeue(out _)) { }
-                        }
+                        var line = await proc.StandardError.ReadLineAsync().ConfigureAwait(false);
+                        if (line == null) break;
+                        _stderrTail.Enqueue(line);
+                        while (_stderrTail.Count > 20 && _stderrTail.TryDequeue(out _)) { }
                     }
-                    catch { }
-                }, ct);
-            }
-            finally
-            {
-                _stdioIoLock.Release();
-            }
+                }
+                catch { }
+            }, ct);
         }
 
         // MCP spec (2025-03-26): stdio transport uses newline-delimited JSON (NDJSON).
@@ -436,7 +491,7 @@ namespace McpNet.Gateway.Upstream
             if (_stdioOut is null)
                 throw new InvalidOperationException("Stdio output stream is not available.");
 
-            // Read one NDJSON line. Skip blank lines - the server may emit a bare \n
+            // Read one NDJSON line. Skip blank lines — the server may emit a bare \n
             // as a keep-alive or separator; treating them as EOF broke tool discovery.
             // Only return null on true EOF (read == 0) or cancellation.
             var bytes = new List<byte>(4096);
@@ -453,7 +508,7 @@ namespace McpNet.Gateway.Upstream
                     try { read = await _stdioOut.ReadAsync(one, 0, 1, ct).ConfigureAwait(false); }
                     catch (OperationCanceledException) { return null; }
 
-                    if (read == 0) return null; // true EOF - stream closed
+                    if (read == 0) return null; // true EOF — stream closed
 
                     var b = one[0];
                     if (b == (byte)'\n') break;
@@ -464,7 +519,7 @@ namespace McpNet.Gateway.Upstream
                 if (bytes.Count > 0 && bytes[bytes.Count - 1] == (byte)'\r')
                     bytes.RemoveAt(bytes.Count - 1);
 
-                if (bytes.Count == 0) continue; // blank line - skip and read next
+                if (bytes.Count == 0) continue; // blank line — skip and read next
 
                 return Encoding.UTF8.GetString(bytes.ToArray());
             }
@@ -527,6 +582,7 @@ namespace McpNet.Gateway.Upstream
 
             _http.Dispose();
             _stdioIoLock.Dispose();
+            _connectLock.Dispose();
             _disposed = true;
         }
     }

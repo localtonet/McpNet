@@ -7,7 +7,8 @@ namespace McpNet.Gateway.Models
     {
         StreamableHttp,
         Sse,
-        Stdio
+        Stdio,
+        RestOpenApi
     }
 
     public class RegisteredServer
@@ -29,31 +30,45 @@ namespace McpNet.Gateway.Models
         public Dictionary<string, string> StdioEnvVars { get; set; } = new Dictionary<string, string>();
         public OAuthConfig? OAuth { get; set; }
         /// <summary>
-        /// Tool name aliases exposed to MCP clients. Key = alias (short name), Value = local tool
-        /// name on this server. The gateway exposes the alias as "{serverName}__{alias}" and strips
-        /// the alias back to the original local name before forwarding to the upstream.
-        /// Example: { "search": "web_search_v2" } → clients see "{server}__search".
+        /// REST / OpenAPI upstream configuration. Set when <see cref="TransportType"/> is
+        /// <see cref="UpstreamTransportType.RestOpenApi"/>; the gateway parses the OpenAPI document
+        /// and projects each operation as an MCP tool.
         /// </summary>
-        public Dictionary<string, string> ToolAliases { get; set; } = new Dictionary<string, string>();
-        /// <summary>
-        /// When &gt; 0, successful (non-error) tool call responses are cached in memory for this
-        /// many seconds. Useful for read-only tools (file listing, catalog lookup, etc.).
-        /// Default 0 = no caching.
-        /// </summary>
-        public int CacheTtlSeconds { get; set; } = 0;
-        /// <summary>
-        /// When true (default), a crashed stdio child process is automatically restarted
-        /// with exponential back-off (2 s → 4 s → … → 60 s, up to 10 attempts).
-        /// </summary>
-        public bool AutoRestart { get; set; } = true;
-        /// <summary>
-        /// When true the server is quarantined - it will not connect or expose tools until
-        /// approved via POST /api/servers/{id}/approve. Newly registered servers are
-        /// quarantined by default to protect against Tool Poisoning Attacks.
-        /// </summary>
-        public bool Quarantined { get; set; } = false;
+        public RestApiConfig? Rest { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Configuration for a REST / OpenAPI upstream. The document is supplied either by URL
+    /// (<see cref="SpecUrl"/>) or inline (<see cref="InlineSpec"/>); operations can be filtered
+    /// by HTTP method and by name before being projected as MCP tools.
+    /// </summary>
+    public class RestApiConfig
+    {
+        /// <summary>URL of the OpenAPI / Swagger document to fetch and parse.</summary>
+        public string? SpecUrl { get; set; }
+
+        /// <summary>Inline OpenAPI / Swagger document (JSON), used instead of <see cref="SpecUrl"/>.</summary>
+        public string? InlineSpec { get; set; }
+
+        /// <summary>Base URL for API calls, overriding any value derived from the document.</summary>
+        public string? BaseUrl { get; set; }
+
+        /// <summary>When non-empty, only these HTTP methods are projected (e.g. get, post).</summary>
+        public List<string> IncludeMethods { get; set; } = new List<string>();
+
+        /// <summary>When non-empty, only operations matching one of these tokens are projected.</summary>
+        public List<string> IncludeOperations { get; set; } = new List<string>();
+
+        /// <summary>Operations matching any of these tokens are excluded from projection.</summary>
+        public List<string> ExcludeOperations { get; set; } = new List<string>();
+
+        /// <summary>Maximum number of tools to generate (0 = unlimited).</summary>
+        public int MaxTools { get; set; }
+
+        /// <summary>Allow calls to private/loopback addresses (disables the SSRF guard).</summary>
+        public bool AllowPrivateNetwork { get; set; }
     }
 
     /// <summary>

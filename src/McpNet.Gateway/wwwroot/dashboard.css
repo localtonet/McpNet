@@ -393,10 +393,47 @@ input:checked + .toggle-slider:before { transform: translateX(16px); }
 .toast.warning { border-left-color: var(--warning); } .toast.warning .t-icon, .toast.warning .t-bar { color: var(--warning); }
 .toast.info    { border-left-color: var(--info); }    .toast.info .t-icon,    .toast.info .t-bar    { color: var(--info); }
 
+/* ── Tablet ──────────────────────────────────────────── */
 @media (max-width: 880px) {
   .app { grid-template-columns: 1fr; }
-  .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; }
-  .side-nav { flex-direction: row; flex-wrap: wrap; flex: 1 1 100%; }
+  .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; overflow-x: hidden; }
+  .side-nav { flex-direction: row; flex-wrap: nowrap; flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .side-nav::-webkit-scrollbar { display: none; }
   .side-nav .nav-label { display: none; }
   .side-nav button .count { display: none; }
+  .side-nav button { flex-shrink: 0; }
+  .side-foot { flex: 0 0 100%; }
+  .topbar { padding: 14px 20px; }
+  .content { padding: 20px 20px 40px; }
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .topbar { padding: 10px 14px; }
+  .topbar .page-sub { display: none; }
+  .content { padding: 14px 14px 40px; }
+  .search { width: auto; min-width: 100px; flex: 1; }
+  .toolbar { flex-wrap: wrap; }
+  /* tables: enable horizontal scroll */
+  .card { overflow-x: auto; }
+  table { min-width: 480px; }
+  /* metrics: 2 per row */
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  /* modal — bottom sheet; !important overrides inline style="" attributes */
+  .modal-backdrop { padding: 0 !important; align-items: flex-end !important; }
+  .modal { border-radius: 18px 18px 0 0 !important; max-height: 92dvh !important; max-width: 100% !important; width: 100% !important; min-width: 0 !important; }
+  .modal-head { padding: 14px 16px 12px !important; gap: 12px !important; }
+  .modal-body { padding: 14px 16px !important; }
+  .modal-footer,
+  .modal .modal-footer { padding: 10px 16px !important; margin-top: 0 !important; }
+  /* transport grid: 2×2 instead of 4×1 */
+  [data-tgrid] { grid-template-columns: repeat(2, 1fr) !important; }
+  .transport-card { padding: 12px 6px 10px !important; }
+}
+
+/* ── Small mobile ────────────────────────────────────── */
+@media (max-width: 400px) {
+  .side-nav button { font-size: 12px; padding: 7px 8px; }
+  .topbar { padding: 8px 12px; }
+  .content { padding: 10px 10px 40px; }
 }

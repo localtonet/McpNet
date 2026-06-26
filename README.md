@@ -1,7 +1,7 @@
 # McpNet Gateway
 
 > **A high-performance, enterprise-ready Model Context Protocol (MCP) gateway for .NET 8.**  
-> Aggregate any number of upstream MCP servers behind a single authenticated endpoint - with a web dashboard, management CLI, per-client access control, rate limiting, audit logging, and optional OpenTelemetry observability.
+> Aggregate any number of upstream MCP servers behind a single authenticated endpoint — with a web dashboard, management CLI, per-client access control, rate limiting, audit logging, and optional OpenTelemetry observability.
 
 ---
 
@@ -10,42 +10,32 @@
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [Project Layout](#project-layout)
-4. [Installation](#installation)
-5. [Quick Start](#quick-start)
-6. [Configuration Reference](#configuration-reference)
-7. [Authentication Modes](#authentication-modes)
-8. [Upstream Servers](#upstream-servers)
+4. [Quick Start](#quick-start)
+5. [Configuration Reference](#configuration-reference)
+6. [Authentication Modes](#authentication-modes)
+7. [Upstream Servers](#upstream-servers)
    - [StreamableHTTP / SSE](#streamablehttp--sse)
    - [Stdio (npx / local process)](#stdio-npx--local-process)
-   - [Stdio Auto-Restart](#stdio-auto-restart)
    - [Upstream Bearer & OAuth 2.0](#upstream-bearer--oauth-20)
-9. [Tool Aggregation](#tool-aggregation)
-   - [Auto Health Check & Auto-Disable](#auto-health-check--auto-disable)
-   - [Tool Argument Validation](#tool-argument-validation)
-   - [Tool Aliases](#tool-aliases)
-   - [Gateway Chaining (Gateway-of-Gateways)](#gateway-chaining-gateway-of-gateways)
-10. [Tool Response Cache](#tool-response-cache)
-11. [Real-Time Notifications (SSE Push)](#real-time-notifications-sse-push)
-12. [Tool Groups](#tool-groups)
-13. [Client Management & Per-Client Access Control](#client-management--per-client-access-control)
-14. [Rate Limiting](#rate-limiting)
-15. [Server Health Checks](#server-health-checks)
-16. [Audit Log](#audit-log)
-17. [MCP Catalog](#mcp-catalog)
-18. [Security Quarantine](#security-quarantine)
-19. [BM25 Semantic Tool Search](#bm25-semantic-tool-search)
-20. [Web Dashboard](#web-dashboard)
-21. [Management REST API](#management-rest-api)
-22. [Management CLI - `mcpnet`](#management-cli--mcpnet)
-23. [Meta-Tools (gateway self-management via MCP)](#meta-tools-gateway-self-management-via-mcp)
-24. [Secrets at Rest](#secrets-at-rest)
-25. [Persistence Backends](#persistence-backends)
-26. [OpenTelemetry](#opentelemetry)
-27. [Session Management](#session-management)
-28. [Docker](#docker)
-29. [Import / Export](#import--export)
-30. [Testing](#testing)
-31. [Security Notes](#security-notes)
+8. [Tool Aggregation](#tool-aggregation)
+9. [Tool Groups](#tool-groups)
+10. [Client Management & Per-Client Access Control](#client-management--per-client-access-control)
+11. [Rate Limiting](#rate-limiting)
+12. [Server Health Checks](#server-health-checks)
+13. [Audit Log](#audit-log)
+14. [MCP Catalog](#mcp-catalog)
+15. [Web Dashboard](#web-dashboard)
+16. [Management REST API](#management-rest-api)
+17. [Management CLI — `mcpnet`](#management-cli--mcpnet)
+18. [Meta-Tools (gateway self-management via MCP)](#meta-tools-gateway-self-management-via-mcp)
+19. [Secrets at Rest](#secrets-at-rest)
+20. [Persistence Backends](#persistence-backends)
+21. [OpenTelemetry](#opentelemetry)
+22. [Session Management](#session-management)
+23. [Docker](#docker)
+24. [Import / Export](#import--export)
+25. [Testing](#testing)
+26. [Security Notes](#security-notes)
 
 ---
 
@@ -75,11 +65,11 @@ AI Agent (MCP client)
 
 **Key properties:**
 
-- **Single MCP endpoint** at `/mcp` - all upstream tools namespaced as `serverName__toolName`
-- **Parallel refresh** - each upstream is probed concurrently; a slow or unresponsive server never blocks others
-- **Incremental cache** - tools from fast servers appear in the catalogue immediately, without waiting for slow ones
-- **Zero-dependency default** - JSON file persistence, no database required
-- **Enterprise-ready** - token-authenticated clients, per-client ACL, per-server rate limits, full audit trail
+- **Single MCP endpoint** at `/mcp` — all upstream tools namespaced as `serverName__toolName`
+- **Parallel refresh** — each upstream is probed concurrently; a slow or unresponsive server never blocks others
+- **Incremental cache** — tools from fast servers appear in the catalogue immediately, without waiting for slow ones
+- **Zero-dependency default** — JSON file persistence, no database required
+- **Enterprise-ready** — token-authenticated clients, per-client ACL, per-server rate limits, full audit trail
 
 ---
 
@@ -94,7 +84,7 @@ src/
 ├── McpNet.Transport.Http        Streamable-HTTP & SSE upstream client
 ├── McpNet.Transport.Stdio       Stdio (child-process) upstream client
 ├── McpNet.Dashboard             Web dashboard + REST management API (embedded resources)
-├── McpNet.Host                  Composition root - entry point
+├── McpNet.Host                  Composition root — entry point
 └── McpNet.Cli                   `mcpnet` management CLI
 ```
 
@@ -109,68 +99,10 @@ src/
 | `McpNet.Gateway.Persistence` | EF Core `DbContext` + repositories for SQLite and PostgreSQL |
 | `McpNet.Transport.AspNetCore` | Maps `/mcp` using ASP.NET Core minimal APIs |
 | `McpNet.Transport.Http` | HTTP upstream client for StreamableHTTP and SSE transport |
-| `McpNet.Transport.Stdio` | Stdio upstream client - spawns child processes (`npx`, `uvx`, executables) |
+| `McpNet.Transport.Stdio` | Stdio upstream client — spawns child processes (`npx`, `uvx`, executables) |
 | `McpNet.Dashboard` | Embedded web dashboard (`dashboard.html`, `dashboard.js`) + REST API endpoints |
-| `McpNet.Host` | `Program.cs` - wires all services, starts Kestrel |
-| `McpNet.Cli` | .NET global tool - `mcpnet` CLI for scripted management |
-
----
-
-## Installation
-
-### Pre-built binaries (GitHub Releases)
-
-Download the latest `mcpnet-gateway` binary for your platform from the [Releases](../../releases) page:
-
-| Platform | Archive |
-|---|---|
-| Windows x64 | `mcpnet-gateway-<version>-win-x64.zip` |
-| Linux x64 | `mcpnet-gateway-<version>-linux-x64.tar.gz` |
-| Linux ARM64 | `mcpnet-gateway-<version>-linux-arm64.tar.gz` |
-| macOS x64 (Intel) | `mcpnet-gateway-<version>-osx-x64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `mcpnet-gateway-<version>-osx-arm64.tar.gz` |
-
-The `mcpnet` CLI binary is published in separate archives under the same release (e.g. `mcpnet-<version>-linux-x64.tar.gz`).
-
-```bash
-# Linux/macOS example
-tar -xzf mcpnet-gateway-1.0.0-linux-x64.tar.gz
-chmod +x mcpnet-gateway
-./mcpnet-gateway
-```
-
-### NuGet - embed in your own application
-
-The gateway can be embedded in any .NET 8 application without ASP.NET Core:
-
-```bash
-dotnet add package McpNet.Gateway.Standalone
-```
-
-```csharp
-using McpNet.Gateway.Standalone;
-
-await McpGatewayBuilder.Create()
-    .ListenOn(5050)
-    .WithDataDirectory("mcp-data")
-    .WithMode(GatewayMode.Dev)
-    .Build()
-    .StartAsync();
-```
-
-The core routing library (without the HttpListener host) is also available separately:
-
-```bash
-dotnet add package McpNet.Gateway
-```
-
-### Docker
-
-```bash
-docker compose up -d
-```
-
-See the [Docker](#docker) section for full details.
+| `McpNet.Host` | `Program.cs` — wires all services, starts Kestrel |
+| `McpNet.Cli` | .NET global tool — `mcpnet` CLI for scripted management |
 
 ---
 
@@ -195,7 +127,7 @@ Gateway starts on **port 5050**. Open **http://localhost:5050/dashboard** to acc
 ### Docker (recommended)
 
 ```bash
-# Default - JSON file persistence, no database
+# Default — JSON file persistence, no database
 docker compose up -d
 
 # With PostgreSQL
@@ -211,7 +143,7 @@ http://localhost:5050/mcp
 Authorization: Bearer <client-bearer-token>
 ```
 
-In **Dev mode** (default) the `Authorization` header is optional - all requests are allowed. In **Enterprise mode** a valid client bearer token is required.
+In **Dev mode** (default) the `Authorization` header is optional — all requests are allowed. In **Enterprise mode** a valid client bearer token is required.
 
 ---
 
@@ -299,11 +231,6 @@ The admin token protects all `/api/*` endpoints and the dashboard. Set via `MCPG
   "StdioWorkingDirectory": null,
   "StdioEnvVars": {
     "API_KEY": "secret"            // injected into the child process environment
-  },
-  "AutoRestart": true,             // restart on unexpected exit (default: true)
-  "CacheTtlSeconds": 0,            // cache tool call results; 0 = disabled (default)
-  "ToolAliases": {                 // optional extra names for tools on this server
-    "my_alias": "original_tool_name"
   }
 }
 ```
@@ -313,20 +240,6 @@ The admin token protects all `/api/*` endpoints and the dashboard. Set via `MCPG
 The gateway probes the runtime automatically (`node --version` / `python --version` etc.) and reports this in the health endpoint response.
 
 > **First-run note:** `npx` packages are downloaded on first connect. This can take 60–120 s. The gateway uses a 120 s per-server timeout and will succeed on the second background refresh (~60 s later) once the package is cached.
-
-### Stdio Auto-Restart
-
-When `AutoRestart: true` (the default for all stdio servers), the gateway automatically reconnects when the child process exits unexpectedly:
-
-| Attempt | Delay before retry |
-|---|---|
-| 1 | 2 s |
-| 2 | 4 s |
-| 3 | 8 s |
-| … | doubles each time (max 60 s) |
-| 10 | stops retrying |
-
-Once the process is back and responds, `IsConnected` is restored and tools are refreshed normally. Disable per-server with `"AutoRestart": false`.
 
 ### Upstream Bearer & OAuth 2.0
 
@@ -367,7 +280,7 @@ When the gateway starts and periodically (every 60 s via `ToolRefreshBackgroundS
 
 ### Parallel refresh with incremental cache
 
-Each upstream server is refreshed **concurrently** (`Task.WhenAll`). When a server responds, its tools are written to the live cache **immediately** - without waiting for other servers to finish. This means:
+Each upstream server is refreshed **concurrently** (`Task.WhenAll`). When a server responds, its tools are written to the live cache **immediately** — without waiting for other servers to finish. This means:
 
 - Fast HTTP servers (typically 1–3 s) are available right away.
 - A slow or unresponsive stdio server (e.g. 120 s npx download timeout) does not block fast servers.
@@ -379,136 +292,14 @@ Any tool can be disabled without removing the upstream server. Disabled tools ar
 
 ---
 
-### Auto Health Check & Auto-Disable
-
-The gateway tracks consecutive failures per upstream server. After **3 consecutive failed refreshes**, the server is automatically marked as *auto-disabled*:
-
-- Its tools are hidden from `tools/list` and return an error if called.
-- The gateway **continues retrying** on every refresh cycle.
-- When the server responds successfully again, the auto-disable flag is cleared **automatically** and the tools reappear - no manual intervention needed.
-
-```
-GET /api/tools/status   → "diagnostics" array shows which servers are failing
-```
-
-### Tool Argument Validation
-
-Before forwarding any `tools/call` to an upstream, the gateway validates the supplied arguments against the tool's `inputSchema`. If a required field is missing or a type is wrong, the gateway returns immediately with error code `-32602 Invalid params` - saving a round-trip to the upstream.
-
-Supported schema checks: `required` fields, `type` constraints (`string`, `number`, `integer`, `boolean`, `array`, `object`).
-
-### Tool Aliases
-
-A server can expose its tools under additional names without modifying the upstream:
-
-```jsonc
-{
-  "Name": "my-server",
-  "ToolAliases": {
-    "my_short_name": "original_long_tool_name"
-  }
-}
-```
-
-This creates an extra entry `my-server__my_short_name` in the catalogue that routes to the same underlying tool. Useful for backwards compatibility when renaming tools.
-
----
-
-### Gateway Chaining (Gateway-of-Gateways)
-
-Because McpNet Gateway itself speaks the MCP protocol, one gateway can be registered as an **upstream server** of another gateway. This lets you build federated topologies without any special configuration.
-
-**Example scenario:**
-
-- **Gateway A** - Alice's machine, exposes tools `read_file`, `search_web`
-- **Gateway B** - Bob's machine, exposes tools `generate_image`, `send_email`
-- **Gateway C** - shared server; registers A as `"alice"` and B as `"bob"`
-
-When an AI agent (Claude, Cursor, etc.) connects to **C**, it sees a single unified tool list:
-
-```
-alice__read_file
-alice__search_web
-bob__generate_image
-bob__send_email
-```
-
-```
-AI Agent (Claude)
-      │  one MCP connection
-      ▼
-┌──────────────────────┐
-│   Gateway C          │  ← AI sees this only; tool names prefixed by C
-└───────┬──────┬───────┘
-        │      │  upstream MCP calls (original tool names, no prefix)
-        ▼      ▼
-   Gateway A  Gateway B
-```
-
-**How it works end-to-end:**
-
-1. C's `ToolAggregator` refreshes A and B as normal upstream MCP servers.
-2. Each tool is stored with `FullName = "{serverName}__{localName}"` (e.g. `alice__read_file`) and `LocalName = "read_file"`.
-3. When the agent calls `tools/list`, C returns the `FullName` values - the agent sees the prefix.
-4. When the agent calls `tools/call` with `alice__read_file`, C strips the prefix and forwards `read_file` to Gateway A. A and B never see the prefix.
-
-**Key points:**
-
-- The prefix (`alice`, `bob`) is whatever name **C's operator** gives the upstream gateway when registering it - it is not fixed by A or B.
-- Name collisions are impossible: even if A and B both expose a tool named `get_time`, C presents them as `alice__get_time` and `bob__get_time`.
-- Auth, rate limiting, and ACLs on C apply to the aggregated view; A and B can independently require their own bearer tokens from C.
-- Chaining depth is unlimited - a gateway can aggregate other aggregating gateways.
-
----
-
-## Tool Response Cache
-
-Tool call results can be cached in-memory to reduce upstream load for frequently called, idempotent tools. Configure per-server:
-
-```jsonc
-{
-  "Name": "my-server",
-  "CacheTtlSeconds": 300    // cache responses for 5 minutes; 0 = disabled (default)
-}
-```
-
-Cache behaviour:
-- Only **non-error** responses are cached.
-- Cache key is a SHA-256 hash of `toolFullName + serialised arguments` - different argument combinations are cached separately.
-- The entire server's cache is invalidated automatically after a tool refresh (`ToolRefreshBackgroundService`).
-- `CacheTtlSeconds: 0` (default) disables caching for that server.
-
----
-
-## Real-Time Notifications (SSE Push)
-
-Clients connected via the SSE endpoint (`GET /mcp`) receive push notifications when the tool catalogue changes. This eliminates the need for polling `tools/list`:
-
-| Notification | When sent |
-|---|---|
-| `notifications/tools/list_changed` | After any successful tool refresh that changes the catalogue |
-| `notifications/prompts/list_changed` | After a prompt refresh |
-| `notifications/resources/list_changed` | After a resource refresh |
-
-To detect changes without an active SSE connection, poll:
-
-```
-GET /api/tools/version
-→ { "version": 42, "lastRefreshedAt": "2026-06-22T10:00:00Z" }
-```
-
-The `version` counter increments each time the tool catalogue changes (content-based - identical refreshes do not bump it).
-
----
-
 ## Tool Groups
 
 Tool groups let you bundle related tools and assign them to clients as a unit.
 
 ```
-POST /api/groups          - create group
-POST /api/groups/{id}/tools - add tool to group
-DELETE /api/groups/{id}/tools/{toolName} - remove tool from group
+POST /api/groups          — create group
+POST /api/groups/{id}/tools — add tool to group
+DELETE /api/groups/{id}/tools/{toolName} — remove tool from group
 ```
 
 A client assigned a group only sees (and can call) tools in that group. Groups can be managed from the dashboard **Tool Groups** tab or via the CLI.
@@ -615,147 +406,6 @@ The catalog is served from `/api/catalog` and searched via `/api/catalog/search`
 
 ---
 
-## Security Quarantine
-
-The Security Quarantine feature protects against **Tool Poisoning Attacks** — a class of prompt-injection attack where a malicious MCP server injects hidden instructions inside tool descriptions to hijack the AI agent's behavior.
-
-### How it works
-
-Every server registered via the REST API (`POST /api/servers`) is placed in **quarantine by default** and does not connect or expose tools until explicitly approved by an administrator:
-
-```
-POST /api/servers           →  server created, Quarantined = true
-                                → tools NOT refreshed, NOT visible to agents
-
-POST /api/servers/{id}/approve  → Quarantined = false, refresh triggered
-                                    → tools now visible to agents
-```
-
-> **Bypass for trusted automation:** pass `"autoApprove": true` in the `POST /api/servers` body to approve immediately (e.g. your own CI pipeline or a local dev setup).
-
-### Quarantine endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/servers/{id}/approve` | Clear quarantine, trigger tool refresh |
-| `POST` | `/api/servers/{id}/quarantine` | Place an active server back into quarantine |
-| `GET` | `/api/servers/quarantine` | List all currently quarantined servers |
-
-### Dashboard integration
-
-- The **Overview** tab shows a prominent amber alert banner when quarantined servers are pending review.
-- The **Servers** table has a new **Status** column: `Active` (green) or `Quarantined` (orange).
-  - Active servers show a shield icon button to quarantine them.
-  - Quarantined servers show a green **✓ Approve** button.
-- The **Security** tab shows the full quarantine review queue with one-click approve/delete actions.
-
-### Server registration flow in practice
-
-```
-External agent or CI pipeline:
-  POST /api/servers { name: "untrusted-server", url: "..." }
-  → Server registered, quarantined
-  → Admin reviews description in Security tab
-  → Admin clicks Approve  (or DELETE if malicious)
-  → Tools become available to agents
-```
-
----
-
-## BM25 Semantic Tool Search
-
-When many MCP servers are connected the agent's context window fills quickly because `tools/list` returns every tool schema. The BM25 Semantic Tool Search feature solves this by exposing a single `mcpnet__retrieve_tools` tool that the agent calls to retrieve only the relevant tool schemas for the current task.
-
-### Token savings example
-
-```
-Without BM25:  tools/list → 50 schemas → ~7,500 tokens used
-With BM25:     tools/list → 1 schema (retrieve_tools) → ~150 tokens
-               retrieve_tools("read file") → top-5 results → ~750 tokens
-               Savings: ~6,600 tokens per turn
-```
-
-### How it works
-
-1. On every tool refresh, the gateway builds an in-memory **BM25 index** over all tool names and descriptions.
-2. When the agent calls `mcpnet__retrieve_tools`, the gateway scores every tool with BM25 and returns the top-N matching schemas.
-3. The `ToolSearchMetrics` singleton counts calls, results returned, and estimates cumulative token savings.
-
-### BM25 index details
-
-- **Zero dependencies** — pure C# implementation, no NuGet packages.
-- **Tuning:** K1 = 1.5, B = 0.75 (standard BM25 parameters).
-- **IDF formula:** Robertson-Sparck Jones variant (`log((N - df + 0.5)/(df + 0.5) + 1)`) — always ≥ 0, even for terms appearing in every document.
-- **Tokenizer:** splits on camelCase boundaries, `__`, `-`, whitespace; lowercases all terms. `deepwiki__ask_question` → `["deepwiki", "ask", "question"]`.
-- **Prefix expansion:** query terms of ≥ 3 characters are expanded to all vocabulary terms with that prefix, so `"file"` matches `"filesystem"`, `"deep"` matches `"deepwiki"`, etc.
-- **Thread safety:** `Rebuild` and `Search` share a single `volatile IndexSnapshot` reference. The snapshot (docs + IDF table + average doc length) is replaced atomically — readers always see a consistent triple with no locks needed.
-- **Lazy rebuild:** if a search is requested before the first background `RefreshAsync` completes, the index is built on-demand from the current tool cache.
-- **Pre-built TF:** term-frequency dictionaries are computed once at index build time, not on every search, eliminating per-search `Dictionary` allocations.
-
-### `mcpnet__retrieve_tools` tool
-
-Automatically available when `EnableMetaTools: true`:
-
-```json
-{
-  "name": "mcpnet__retrieve_tools",
-  "description": "Search for relevant MCP tools by semantic query. Returns top-N tool schemas ranked by BM25 relevance. Call this instead of loading all tool schemas to save context tokens.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "query": { "type": "string", "description": "Natural-language description of the task" },
-      "top":   { "type": "integer", "description": "Max results to return (default: 5)" }
-    },
-    "required": ["query"]
-  }
-}
-```
-
-Example response:
-```json
-[
-  {
-    "fullName": "filesystem__read_file",
-    "serverName": "filesystem",
-    "description": "Read the complete contents of a file from the file system.",
-    "inputSchema": { ... },
-    "score": 4.821
-  }
-]
-```
-
-### BM25 REST endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/tools/search?q={query}` | Live BM25 search; returns top-10 results + total tool count |
-| `GET` | `/api/tools/search-metrics` | Cumulative token-savings metrics |
-
-`search-metrics` response:
-```jsonc
-{
-  "enabled": true,
-  "totalCalls": 142,
-  "totalResultsReturned": 710,
-  "estimatedTokensSaved": 189750,   // (totalTools - 1 - resultsReturned) × 150 tokens/schema
-  "averageResultsPerCall": 5.0,
-  "averageToolsAtCall": 34.2,
-  "tokensPerSchema": 150,
-  "firstCallAt": "2026-06-22T08:00:00Z",
-  "lastCallAt": "2026-06-22T14:22:00Z"
-}
-```
-
-### Dashboard: Security tab
-
-The **Security** tab in the dashboard surfaces both quarantine management and BM25 metrics:
-
-- **Quarantine queue** — pending servers with Approve / Delete actions.
-- **BM25 Token Savings** — live metric cards: total calls, estimated tokens saved, average results per call, average tools at call time.
-- **Live Search Tester** — type any query and see real BM25 results with scores and a visual score bar.
-
----
-
 ## Web Dashboard
 
 Access at **http://localhost:5050/dashboard** (or `/`).
@@ -764,14 +414,13 @@ Access at **http://localhost:5050/dashboard** (or `/`).
 
 | Tab | Description |
 |---|---|
-| **Dashboard** | Overview: server count, tool count, client count, quarantine alert, recent activity feed |
-| **Servers** | Register, edit, enable/disable, quarantine/approve, delete upstream servers; Status column; inline health chips; Ping button |
+| **Dashboard** | Overview: server count, tool count, client count, recent activity feed |
+| **Servers** | Register, edit, enable/disable, delete upstream servers; inline health chips; Ping button |
 | **Catalog** | Browse / search 61+ built-in MCP servers; add custom entries; one-click install |
 | **Tools** | Browse all aggregated tools; enable/disable individual tools; refresh trigger with live progress |
 | **Tool Groups** | Create groups, manage tool membership |
 | **Clients** | Create clients, manage permissions (server ACL, group ACL, rate limits, per-server rate limits), regenerate tokens |
 | **Activity** | Filterable audit log table |
-| **Security** | Quarantine review queue (approve / delete); BM25 token savings metrics; live BM25 search tester |
 | **Settings** | Import / export gateway config; gateway info |
 
 ### Background auto-refresh
@@ -780,7 +429,7 @@ The dashboard polls `/api/tools/status` every **60 seconds** in the background a
 
 ### Incremental tool loading
 
-When a manual **Refresh Tools** is triggered, the dashboard polls for status every 2 s and loads tools incrementally as fast servers respond - the tool list updates in real-time without waiting for slow servers.
+When a manual **Refresh Tools** is triggered, the dashboard polls for status every 2 s and loads tools incrementally as fast servers respond — the tool list updates in real-time without waiting for slow servers.
 
 ---
 
@@ -794,13 +443,10 @@ All endpoints are under `/api` and require `X-Admin-Token: <token>` in Enterpris
 |---|---|---|
 | `GET` | `/api/servers` | List all registered servers |
 | `GET` | `/api/servers/{id}` | Get server details |
-| `POST` | `/api/servers` | Register a new server (quarantined by default; pass `autoApprove: true` to bypass) |
+| `POST` | `/api/servers` | Register a new server |
 | `PUT` | `/api/servers/{id}` | Update server |
 | `DELETE` | `/api/servers/{id}` | Remove server |
 | `PATCH` | `/api/servers/{id}/toggle` | Enable / disable server |
-| `POST` | `/api/servers/{id}/approve` | Clear quarantine flag and trigger tool refresh |
-| `POST` | `/api/servers/{id}/quarantine` | Put an active server into quarantine |
-| `GET` | `/api/servers/quarantine` | List all currently quarantined servers |
 | `GET` | `/api/servers/{id}/tools` | List tools from a specific server |
 | `GET` | `/api/servers/{id}/health` | Live health check (latency, tool count, runtime info) |
 | `GET` | `/api/servers/{id}/stdio-probe` | Probe stdio command path and runtime |
@@ -810,14 +456,11 @@ All endpoints are under `/api` and require `X-Admin-Token: <token>` in Enterpris
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/tools` | List all aggregated tools |
-| `GET` | `/api/tools/version` | Tool catalogue version counter + last refresh time |
 | `POST` | `/api/tools/refresh` | Trigger async refresh (returns `202 Accepted`) |
 | `GET` | `/api/tools/status` | Refresh status (`refreshing`, `totalTools`, diagnostics) |
 | `GET` | `/api/tools/diagnostics` | Last refresh diagnostics per server |
 | `POST` | `/api/tools/call` | Call a tool directly from the dashboard |
 | `PATCH` | `/api/servers/{id}/tools/{toolName}/toggle` | Enable / disable individual tool |
-| `GET` | `/api/tools/search?q={query}` | BM25 semantic search over all tools (top-10) |
-| `GET` | `/api/tools/search-metrics` | Cumulative BM25 token-savings statistics |
 
 ### Groups
 
@@ -856,13 +499,11 @@ All endpoints are under `/api` and require `X-Admin-Token: <token>` in Enterpris
 | `GET` | `/api/audit` | Recent audit log entries |
 | `GET` | `/api/export` | Export full gateway config (servers, groups, clients) |
 | `POST` | `/api/import` | Import config (adds new entries, skips existing names) |
-| `POST` | `/api/import/claude-desktop` | Import from Claude Desktop config format (`mcpServers`) |
 | `GET` | `/health` | Process health check (status, version, mode) |
-| `GET` | `/metrics` | Prometheus scraping endpoint (requires `Telemetry:Prometheus:Enabled=true`) |
 
 ---
 
-## Management CLI - `mcpnet`
+## Management CLI — `mcpnet`
 
 Install as a .NET global tool:
 
@@ -878,7 +519,7 @@ dotnet run --project src/McpNet.Cli -- <command>
 
 ### First-time setup
 
-Save your gateway URL and admin token once - no need to pass flags on every command:
+Save your gateway URL and admin token once — no need to pass flags on every command:
 
 ```bash
 mcpnet configure --url http://localhost:5050 --token 111111111111111111
@@ -952,11 +593,8 @@ Available meta-tools (all prefixed `mcpnet__`):
 | `mcpnet__refresh` | Trigger tool refresh |
 | `mcpnet__create_group` | Create a tool group |
 | `mcpnet__list_groups` | List tool groups |
-| `mcpnet__retrieve_tools` | **BM25 semantic search** — returns top-N matching tool schemas ranked by relevance. Agents call this instead of loading all schemas to save context tokens. |
 
 > Disabled by default. Enable only in trusted environments.
-
-> `mcpnet__retrieve_tools` is the primary mechanism for token savings. Instead of listing every tool schema (expensive), the agent calls `retrieve_tools` with a natural-language description of the task and receives only the relevant schemas.
 
 ---
 
@@ -983,7 +621,7 @@ Encrypted values are stored with an `enc:` prefix:
 }
 ```
 
-Plaintext values (from existing files before encryption was enabled) are **automatically detected** (no `enc:` prefix) and loaded as-is - no manual migration needed. The value is re-encrypted the next time that record is saved.
+Plaintext values (from existing files before encryption was enabled) are **automatically detected** (no `enc:` prefix) and loaded as-is — no manual migration needed. The value is re-encrypted the next time that record is saved.
 
 ### Key management
 
@@ -1017,32 +655,20 @@ Disabled by default. Enable in `appsettings.json`:
 ```jsonc
 "Telemetry": {
   "Enabled": true,
-  "OtlpEndpoint": "http://localhost:4317",   // omit for console exporter
-  "Prometheus": {
-    "Enabled": false   // set true to expose /metrics for Prometheus scraping
-  }
+  "OtlpEndpoint": "http://localhost:4317"   // omit for console exporter
 }
 ```
 
 **Traces:**
-- `mcp.tool.call` - span per tool call (source: `McpNet.Gateway`)
+- `mcp.tool.call` — span per tool call (source: `McpNet.Gateway`)
 - Tags: `mcp.tool.name`, `mcp.server.name`
 - ASP.NET Core + HttpClient instrumentation included
 
 **Metrics:**
-- `mcpnet.tool_calls` - counter, tagged by `tool` and `server`
-- `mcpnet.tool_call.duration` - histogram (milliseconds)
-- All ASP.NET Core + HttpClient metrics included
+- `mcpnet.tool_calls` — counter, tagged by `tool` and `server`
+- `mcpnet.tool_call.duration` — histogram (milliseconds)
 
-**Exporters:**
-
-| Config | Exporter |
-|---|---|
-| `Prometheus:Enabled=true` | `/metrics` endpoint (Prometheus pull) |
-| `OtlpEndpoint` set | OTLP gRPC push to collector |
-| Neither | Console (useful for local debugging) |
-
-Prometheus scraping endpoint: `GET /metrics` (no authentication required by default - place behind a firewall or reverse proxy).
+If `OtlpEndpoint` is set, uses the OTLP gRPC exporter. Otherwise uses the console exporter (useful for local debugging).
 
 ---
 
@@ -1055,7 +681,7 @@ The gateway maintains lightweight MCP sessions (`Mcp-Session-Id` header) with a 
 ## Docker
 
 ```bash
-# Default - JSON persistence, port 5050
+# Default — JSON persistence, port 5050
 docker compose up -d
 
 # PostgreSQL persistence
@@ -1104,36 +730,6 @@ Content-Type: application/json
 
 Also available from the dashboard **Settings** tab.
 
-### Import from Claude Desktop
-
-If you already have servers configured in Claude Desktop (`claude_desktop_config.json`), you can import them directly:
-
-```bash
-POST /api/import/claude-desktop
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"],
-      "env": { "SOME_KEY": "value" }
-    },
-    "brave-search": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-      "env": { "BRAVE_API_KEY": "..." }
-    }
-  }
-}
-```
-
-Each `mcpServers` entry is registered as a Stdio upstream server. Servers whose names already exist are skipped (no duplicates). The response reports how many were added and skipped:
-
-```jsonc
-{ "serversAdded": 2, "serversSkipped": 0 }
-```
-
 ---
 
 ## Testing
@@ -1160,29 +756,126 @@ Test coverage includes:
 
 | Area | Status | Recommendation |
 |---|---|---|
-| `ClientSecret` (OAuth) | **Encrypted at rest** - `enc:` prefix in `servers.json` | Back up `mcp-data/dp-keys/`; see [Secrets at Rest](#secrets-at-rest) |
-| `BearerToken` (upstream servers) | **Encrypted at rest** - `enc:` prefix in `servers.json` | Same as above |
-| `BearerToken` (clients) | **Encrypted at rest** in JSON persistence (`enc:` prefix); stored plaintext with the EF/SQL backends. Token is high-entropy random | Treat `clients.json` / the DB as secret; never commit it (see below) |
-| Admin token | Env var `MCPGATEWAY_ADMIN_TOKEN` takes precedence over `appsettings.json`; compared in constant time | Always set this in production; never commit a real token to `appsettings.json` |
-| Dev mode | **No authentication** on `/api`, `/mcp` or `/dashboard`; binds on all interfaces | Default is Dev. Never expose it to a network - registering a stdio server runs local commands. Use `Mode=Enterprise` for any shared/exposed deployment |
+| `ClientSecret` (OAuth) | **Encrypted** — `enc:` prefix in `servers.json` | Back up `mcp-data/dp-keys/`; see [Secrets at Rest](#secrets-at-rest) |
+| `BearerToken` (servers & clients) | **Encrypted** — `enc:` prefix in JSON files | Same as above |
+| Admin token | Env var `MCPGATEWAY_ADMIN_TOKEN` takes precedence | Always set this in production; do not use the default |
+| Dev mode | No authentication | Never expose Dev mode to the internet |
 | Client bearer tokens | 32-byte cryptographically random (URL-safe Base64) | Rotate via `POST /api/clients/{id}/regenerate` or `mcpnet client regenerate <name>` |
 | GET `/mcp` SSE | Authenticated in Enterprise mode (same Bearer check as POST) | Enforce Enterprise mode in production |
 | TLS | Not handled by the gateway | Place behind a reverse proxy (nginx, Caddy, YARP) for TLS termination in production |
-| Runtime data (`mcp-data/`) | Contains tokens, OAuth secrets, audit logs **and** the `dp-keys/` that decrypt them | **Never commit `mcp-data/` to source control.** It is git-ignored by default; if it was committed previously, purge it from history and rotate all tokens |
-| **Tool Poisoning Attacks** | New servers are **quarantined by default** — tools are not exposed until an admin approves the server | Review each new server's description in the **Security** tab before approving. Never use `autoApprove: true` for untrusted third-party servers. |
-| BM25 search index | In-memory, rebuilt from the live tool cache on every refresh | No external data exposure; tool names and descriptions are local data already held in the gateway |
 
 ---
 
 ## Built With
 
-- [.NET 8](https://dotnet.microsoft.com/) - runtime and framework
-- [ASP.NET Core](https://learn.microsoft.com/aspnet/core) - HTTP server and minimal APIs
-- [System.Text.Json](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview) - all serialisation (no Newtonsoft)
-- [Entity Framework Core](https://learn.microsoft.com/ef/core/) - optional SQLite / PostgreSQL persistence
-- [OpenTelemetry .NET](https://opentelemetry.io/docs/languages/net/) - observability (opt-in)
-- [Model Context Protocol](https://modelcontextprotocol.io/) - AI tool-call protocol
+- [.NET 8](https://dotnet.microsoft.com/) — runtime and framework
+- [ASP.NET Core](https://learn.microsoft.com/aspnet/core) — HTTP server and minimal APIs
+- [System.Text.Json](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview) — all serialisation (no Newtonsoft)
+- [Entity Framework Core](https://learn.microsoft.com/ef/core/) — optional SQLite / PostgreSQL persistence
+- [OpenTelemetry .NET](https://opentelemetry.io/docs/languages/net/) — observability (opt-in)
+- [Model Context Protocol](https://modelcontextprotocol.io/) — AI tool-call protocol
 
 ---
 
 *Built on .NET 8 · System.Text.Json only · Nullable enabled · No implicit usings*
+
+
+The CLI talks to the gateway's `/api` surface (uses `AdminToken`).
+
+```bash
+# Servers
+mcpnet servers                       # list registered upstream servers
+mcpnet register --name ctx7 --url http://localhost:9000/mcp
+mcpnet deregister --name ctx7
+mcpnet refresh                       # re-discover upstream tools
+
+# Tools
+mcpnet tools                         # list aggregated tools
+mcpnet enable  --name ctx7__search
+mcpnet disable --name ctx7__search
+
+# Groups
+mcpnet groups                        # list tool groups
+mcpnet group create <name>
+
+# Clients & audit
+mcpnet clients
+mcpnet client <name>
+mcpnet audit                         # recent audit log
+mcpnet version
+```
+
+Global flags: `--url <gateway>` (default `http://localhost:5051`), `--token <adminToken>`.
+
+---
+
+## Upstream OAuth
+
+Any registered server can authenticate to its upstream using **OAuth 2.0 client-credentials**. Configure `OAuth` on the `RegisteredServer`:
+
+```jsonc
+{
+  "Name": "secure-api",
+  "Url": "https://upstream/mcp",
+  "OAuth": {
+    "Enabled": true,
+    "TokenUrl": "https://auth.example.com/oauth/token",
+    "ClientId": "my-client",
+    "ClientSecret": "my-secret",
+    "Scopes": ["mcp.read", "mcp.write"]
+  }
+}
+```
+
+Behavior:
+- Tokens are cached and refreshed automatically ~30s before expiry.
+- On a `401` from the upstream, the cached token is invalidated and the request is retried **once** with a fresh token.
+- If `OAuth` is omitted, a static `BearerToken` (if set) is used instead.
+
+> **Security note:** `ClientSecret` is currently stored in plaintext in `servers.json`. Restrict file permissions on `DataDirectory`, or inject secrets via environment/secret store in production. This is a known limitation.
+
+---
+
+## Meta-tools (gateway self-management) — _off by default_
+
+When `EnableMetaTools: true`, the gateway exposes its own management surface as MCP tools prefixed `mcpnet__`, so an MCP client can administer the gateway:
+
+`mcpnet__list_servers`, `mcpnet__register_server`, `mcpnet__deregister_server`, `mcpnet__list_tools`, `mcpnet__enable_tool`, `mcpnet__disable_tool`, `mcpnet__refresh`, and (when groups are configured) `mcpnet__create_group`, `mcpnet__list_groups`.
+
+Disabled by default to keep the default deployment minimal and safe.
+
+---
+
+## OpenTelemetry — _off by default_
+
+Set `Telemetry:Enabled: true` to emit traces and metrics:
+- Traces: `mcp.tool.call` spans (source `McpNet.Gateway`), plus ASP.NET Core & HttpClient instrumentation.
+- Metrics: `mcpnet.tool_calls` (counter), `mcpnet.tool_call.duration` (histogram).
+
+Exporter selection:
+- If `OtlpEndpoint` is set → OTLP exporter.
+- Otherwise → Console exporter (useful for local debugging).
+
+---
+
+## Docker
+
+```bash
+# Default (JSON persistence)
+docker compose up --build
+
+# With Postgres
+docker compose --profile postgres up --build
+```
+
+The image is a multi-stage build, runs as a non-root user, exposes port `5050`, and includes a healthcheck.
+
+---
+
+## Testing
+
+```bash
+dotnet test McpNet.slnx -c Release
+```
+
+Covers protocol serialization, session management, auth, gateway models, OAuth token provider (caching/refresh/retry), meta-tool handler, JSON persistence round-trips, and CLI argument parsing.

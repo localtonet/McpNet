@@ -15,12 +15,16 @@ using McpNet.Gateway.Auth;
 using McpNet.Gateway.Dashboard;
 using McpNet.Gateway.Models;
 using McpNet.Gateway.Registry;
+using McpNet.Gateway.Upstream.Rest;
 
 namespace McpNet.Gateway.Standalone.Management
 {
     internal sealed class ManagementHandler
     {
         private readonly IServiceProvider _sp;
+
+        // Shared client for fetching OpenAPI documents during dashboard preview.
+        private static readonly System.Net.Http.HttpClient RestPreviewHttp = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 
         public ManagementHandler(IServiceProvider sp) => _sp = sp;
 
@@ -56,6 +60,7 @@ namespace McpNet.Gateway.Standalone.Management
                     case "export":   await HandleExportAsync(ctx, ct);                 return;
                     case "import":   await HandleImportAsync(ctx, ct);                 return;
                     case "catalog":  await HandleCatalogAsync(ctx, segs, method, ct);  return;
+                    case "rest":     await HandleRestPreviewAsync(ctx, segs, method, ct); return;
                 }
                 await WriteErrorAsync(ctx, 404, "Not found", ct);
             }
@@ -91,13 +96,6 @@ namespace McpNet.Gateway.Standalone.Management
                     await WriteJsonAsync(ctx, 201, ServerDto(saved), ct);
                     return;
                 }
-            }
-
-            // GET /api/servers/quarantine - list quarantined servers
-            if (segs.Length == 3 && Seg(segs, 2) == "quarantine" && method == "GET")
-            {
-                var all = await repo.GetAllAsync(ct);
-                await WriteJsonAsync(ctx, 200, all.Where(s => s.Quarantined).Select(ServerDto), ct); return;
             }
 
             if (!TryGuid(segs, 2, out var id)) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
@@ -150,24 +148,6 @@ namespace McpNet.Gateway.Standalone.Management
             }
             if (segs.Length == 4 && s3 == "health"      && method == "GET") { await HandleServerHealthAsync(ctx, id, repo, registry, ct); return; }
             if (segs.Length == 4 && s3 == "stdio-probe" && method == "GET") { await HandleStdioProbeAsync(ctx, id, repo, ct); return; }
-            if (segs.Length == 4 && s3 == "approve" && method == "POST")
-            {
-                var s = await repo.GetByIdAsync(id, ct);
-                if (s is null) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
-                s.Quarantined = false;
-                await registry.UpdateServerAsync(s, ct);
-                FireAndForget(() => aggregator.RefreshAsync());
-                await WriteJsonAsync(ctx, 200, ServerDto(s), ct); return;
-            }
-            if (segs.Length == 4 && s3 == "quarantine" && method == "POST")
-            {
-                var s = await repo.GetByIdAsync(id, ct);
-                if (s is null) { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
-                s.Quarantined = true;
-                await registry.UpdateServerAsync(s, ct);
-                FireAndForget(() => aggregator.RefreshAsync());
-                await WriteJsonAsync(ctx, 200, ServerDto(s), ct); return;
-            }
 
             await WriteErrorAsync(ctx, 404, "Not found", ct);
         }
@@ -310,47 +290,18 @@ namespace McpNet.Gateway.Standalone.Management
             if (s2 == "diagnostics" && method == "GET")
             { await WriteJsonAsync(ctx, 200, agg.GetLastRefreshDiagnostics().Select(d => new { d.ServerId, d.ServerName, d.TransportType, d.Status, d.Success, d.ToolCount, d.DurationMs, d.ErrorMessage, d.Timestamp }), ct); return; }
 
-            if (s2 == "version" && method == "GET")
-            {
-                await WriteJsonAsync(ctx, 200, new
-                {
-                    version = agg.ToolsVersion,
-                    lastRefreshedAt = agg.LastRefreshedAt == DateTime.MinValue ? (DateTime?)null : agg.LastRefreshedAt
-                }, ct); return;
-            }
             if (s2 == "search-metrics" && method == "GET")
             {
-                var m = _sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
-                if (m is null) { await WriteJsonAsync(ctx, 200, new { enabled = false }, ct); return; }
                 await WriteJsonAsync(ctx, 200, new
                 {
-                    enabled = true,
-                    totalCalls = m.TotalCalls,
-                    totalResultsReturned = m.TotalResultsReturned,
-                    estimatedTokensSaved = m.EstimatedTokensSaved,
-                    averageResultsPerCall = Math.Round(m.AverageResultsPerCall, 1),
-                    averageToolsAtCall = Math.Round(m.AverageToolsAtCall, 1),
-                    tokensPerSchema = McpNet.Gateway.Aggregation.ToolSearchMetrics.TokensPerSchema,
-                    firstCallAt = m.FirstCallAt == DateTime.MinValue ? (DateTime?)null : m.FirstCallAt,
-                    lastCallAt  = m.LastCallAt  == DateTime.MinValue ? (DateTime?)null : m.LastCallAt
-                }, ct); return;
-            }
-            if (s2 == "search" && method == "GET")
-            {
-                var q = ctx.Request.QueryString["q"] ?? "";
-                if (string.IsNullOrWhiteSpace(q)) { await WriteErrorAsync(ctx, 400, "q is required", ct); return; }
-                var results = agg.SearchTools(q.Trim(), 10);
-                await WriteJsonAsync(ctx, 200, new
-                {
-                    query = q,
-                    totalTools = agg.GetEnabledTools().Count,
-                    results = results.Select(r => new
-                    {
-                        r.Tool.FullName,
-                        r.Tool.ServerName,
-                        Description = r.Tool.Definition?.Description,
-                        Score = Math.Round(r.Score, 3)
-                    })
+                    enabled              = !agg.SearchIndex.IsEmpty,
+                    tokensPerSchema      = ToolSearchMetrics.TokensPerSchema,
+                    totalCalls           = agg.SearchMetrics.TotalCalls,
+                    estimatedTokensSaved = agg.SearchMetrics.EstimatedTokensSaved,
+                    averageResultsPerCall = agg.SearchMetrics.AverageResultsPerCall,
+                    averageToolsAtCall   = agg.SearchMetrics.AverageToolsAtCall,
+                    firstCallAt          = agg.SearchMetrics.FirstCallAt == DateTime.MinValue ? (DateTime?)null : agg.SearchMetrics.FirstCallAt,
+                    lastCallAt           = agg.SearchMetrics.LastCallAt  == DateTime.MinValue ? (DateTime?)null : agg.SearchMetrics.LastCallAt
                 }, ct); return;
             }
 
@@ -551,6 +502,31 @@ namespace McpNet.Gateway.Standalone.Management
         private static Task WriteErrorAsync(HttpListenerContext ctx, int status, string message, CancellationToken ct)
             => WriteJsonAsync(ctx, status, new { error = message }, ct);
 
+        // ── /api/rest/preview ────────────────────────────────────────────
+        private async Task HandleRestPreviewAsync(HttpListenerContext ctx, string[] segs, string method, CancellationToken ct)
+        {
+            if (segs.Length != 3 || Seg(segs, 2) != "preview" || method != "POST")
+            { await WriteErrorAsync(ctx, 404, "Not found", ct); return; }
+
+            var cfg = await ReadJsonAsync<RestApiConfig>(ctx, ct);
+            if (cfg is null || (string.IsNullOrWhiteSpace(cfg.SpecUrl) && string.IsNullOrWhiteSpace(cfg.InlineSpec)))
+            { await WriteErrorAsync(ctx, 400, "Provide a spec URL or inline OpenAPI document.", ct); return; }
+
+            try
+            {
+                var connector = await RestUpstreamConnector.PreviewAsync(cfg, RestPreviewHttp, ct);
+                var ops = connector.Operations
+                    .OrderBy(o => o.PathTemplate, StringComparer.Ordinal)
+                    .ThenBy(o => o.Method, StringComparer.Ordinal)
+                    .Select(o => new { toolName = o.ToolName, method = o.Method, path = o.PathTemplate, summary = o.Summary, parameterCount = o.Parameters.Count, hasBody = o.HasBody });
+                await WriteJsonAsync(ctx, 200, new { baseUrl = connector.BaseUrl, count = connector.Operations.Count, operations = ops }, ct);
+            }
+            catch (Exception ex)
+            {
+                await WriteErrorAsync(ctx, 400, ex.Message, ct);
+            }
+        }
+
         private static async Task<T?> ReadJsonAsync<T>(HttpListenerContext ctx, CancellationToken ct)
         {
             try { using var r = new System.IO.StreamReader(ctx.Request.InputStream, Encoding.UTF8); return McpJsonOptions.Deserialize<T>(await r.ReadToEndAsync().ConfigureAwait(false)); }
@@ -564,8 +540,8 @@ namespace McpNet.Gateway.Standalone.Management
 
         // ── DTO helpers ───────────────────────────────────────────────────────
 
-        private static object ServerDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.StdioCommand, s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null };
-        private static object ServerDetailDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.Enabled, s.CreatedAt, s.UpdatedAt, s.StdioCommand, s.StdioArgs, s.StdioWorkingDirectory, StdioEnvVarKeys = s.StdioEnvVars.Keys.ToList(), CustomHeaders = s.CustomHeaders, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? new { s.OAuth.Enabled, s.OAuth.TokenUrl, s.OAuth.ClientId, s.OAuth.Scopes } : null };
+        private static object ServerDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.StdioCommand, RestEndpoint = s.Rest is null ? null : (s.Rest.SpecUrl ?? s.Rest.BaseUrl), s.Enabled, s.CreatedAt, s.UpdatedAt, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null };
+        private static object ServerDetailDto(RegisteredServer s) => new { s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(), s.Enabled, s.CreatedAt, s.UpdatedAt, s.StdioCommand, s.StdioArgs, s.StdioWorkingDirectory, StdioEnvVarKeys = s.StdioEnvVars.Keys.ToList(), CustomHeaders = s.CustomHeaders, HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true }, OAuth = s.OAuth is { Enabled: true } ? new { s.OAuth.Enabled, s.OAuth.TokenUrl, s.OAuth.ClientId, s.OAuth.Scopes } : null, Rest = s.Rest };
         private static object ClientDto(McpClient c) => new { c.Id, c.Name, c.Enabled, c.CreatedAt, AllowedServers = c.AllowedServerIds.Count, AllowedGroups = c.AllowedGroupIds.Count };
         private static object ClientDetailDto(McpClient c) => new { c.Id, c.Name, c.Enabled, c.CreatedAt, c.AllowedServerIds, c.AllowedGroupIds, c.RateLimitPerMinute, c.ServerRateLimits, AllowedServers = c.AllowedServerIds.Count, AllowedGroups = c.AllowedGroupIds.Count };
 
@@ -577,7 +553,7 @@ namespace McpNet.Gateway.Standalone.Management
             TransportType = Enum.TryParse<UpstreamTransportType>(b.TransportType, true, out var tt) ? tt : UpstreamTransportType.StreamableHttp,
             BearerToken = b.BearerToken, CustomHeaders = b.CustomHeaders ?? new Dictionary<string, string>(),
             StdioCommand = b.StdioCommand, StdioArgs = b.StdioArgs ?? new List<string>(),
-            StdioWorkingDirectory = b.StdioWorkingDirectory, StdioEnvVars = b.StdioEnvVars ?? new Dictionary<string, string>(), OAuth = b.OAuth
+            StdioWorkingDirectory = b.StdioWorkingDirectory, StdioEnvVars = b.StdioEnvVars ?? new Dictionary<string, string>(), OAuth = b.OAuth, Rest = b.Rest
         };
 
         private static void ApplyServerUpdate(RegisteredServer existing, RegisterServerRequest b)
@@ -589,11 +565,12 @@ namespace McpNet.Gateway.Standalone.Management
             existing.StdioWorkingDirectory = b.StdioWorkingDirectory; existing.StdioEnvVars = b.StdioEnvVars ?? existing.StdioEnvVars;
             if (b.OAuth != null && string.IsNullOrEmpty(b.OAuth.ClientSecret) && existing.OAuth != null) b.OAuth.ClientSecret = existing.OAuth.ClientSecret;
             existing.OAuth = b.OAuth;
+            if (b.Rest != null) existing.Rest = b.Rest;
         }
 
         // ── Request models ────────────────────────────────────────────────────
 
-        private class RegisterServerRequest { public string Name { get; set; } = ""; public string? Url { get; set; } public string TransportType { get; set; } = "StreamableHttp"; public string? BearerToken { get; set; } public Dictionary<string, string>? CustomHeaders { get; set; } public string? StdioCommand { get; set; } public List<string>? StdioArgs { get; set; } public string? StdioWorkingDirectory { get; set; } public Dictionary<string, string>? StdioEnvVars { get; set; } public OAuthConfig? OAuth { get; set; } }
+        private class RegisterServerRequest { public string Name { get; set; } = ""; public string? Url { get; set; } public string TransportType { get; set; } = "StreamableHttp"; public string? BearerToken { get; set; } public Dictionary<string, string>? CustomHeaders { get; set; } public string? StdioCommand { get; set; } public List<string>? StdioArgs { get; set; } public string? StdioWorkingDirectory { get; set; } public Dictionary<string, string>? StdioEnvVars { get; set; } public OAuthConfig? OAuth { get; set; } public RestApiConfig? Rest { get; set; } }
         private class CreateGroupRequest   { public string Name { get; set; } = ""; public string? Description { get; set; } }
         private class ToolNameRequest      { public string ToolName { get; set; } = ""; }
         private class CreateClientRequest  { public string Name { get; set; } = ""; }

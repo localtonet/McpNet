@@ -15,11 +15,14 @@ using McpNet.Gateway.Auth;
 using McpNet.Gateway.Dashboard;
 using McpNet.Gateway.Models;
 using McpNet.Gateway.Registry;
+using McpNet.Gateway.Upstream.Rest;
 
 namespace McpNet.Dashboard
 {
     public static class McpManagementEndpoints
     {
+        // Shared client for fetching OpenAPI documents during dashboard preview.
+        private static readonly System.Net.Http.HttpClient RestPreviewHttp = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         public static IEndpointConventionBuilder MapMcpManagement(
             this IEndpointRouteBuilder endpoints,
             string pattern = "/api")
@@ -60,15 +63,11 @@ namespace McpNet.Dashboard
                     StdioWorkingDirectory = body.StdioWorkingDirectory,
                     StdioEnvVars = body.StdioEnvVars ?? new System.Collections.Generic.Dictionary<string, string>(),
                     OAuth = body.OAuth,
-                    // Security quarantine: new servers are quarantined by default to prevent
-                    // Tool Poisoning Attacks. Set autoApprove=true in the request to bypass.
-                    Quarantined = !body.AutoApprove
+                    Rest = body.Rest
                 };
                 var saved = await registry.RegisterServerAsync(server, ct);
                 // Fire-and-forget: stdio servers can take 60-120s to start on first run.
-                // Skip refresh if quarantined - server won't connect anyway.
-                if (!saved.Quarantined)
-                    _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
+                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
                 return Results.Created($"/api/servers/{saved.Id}", ServerDto(saved));
             });
 
@@ -93,6 +92,7 @@ namespace McpNet.Dashboard
                 if (body.OAuth != null && string.IsNullOrEmpty(body.OAuth.ClientSecret) && existing.OAuth != null)
                     body.OAuth.ClientSecret = existing.OAuth.ClientSecret;
                 existing.OAuth = body.OAuth;
+                if (body.Rest != null) existing.Rest = body.Rest;
                 var updated = await registry.UpdateServerAsync(existing, ct);
                 // Fire-and-forget refresh so stdio servers don't block the HTTP response.
                 _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
@@ -117,6 +117,29 @@ namespace McpNet.Dashboard
             {
                 aggregator.SetToolEnabled(toolName, enabled);
                 return Results.Ok(new { toolName, enabled });
+            });
+
+            // ── REST / OpenAPI preview ────────────────────────────────────────
+            // Parses an OpenAPI document (URL or inline) and returns the operations a REST
+            // upstream would expose, so the operator can pick which ones to include.
+            group.MapPost("/rest/preview", async (HttpContext ctx, CancellationToken ct) =>
+            {
+                var cfg = await ReadJsonAsync<RestApiConfig>(ctx);
+                if (cfg is null || (string.IsNullOrWhiteSpace(cfg.SpecUrl) && string.IsNullOrWhiteSpace(cfg.InlineSpec)))
+                    return Results.BadRequest(new { error = "Provide a spec URL or inline OpenAPI document." });
+                try
+                {
+                    var connector = await RestUpstreamConnector.PreviewAsync(cfg, RestPreviewHttp, ct);
+                    var ops = connector.Operations
+                        .OrderBy(o => o.PathTemplate, StringComparer.Ordinal)
+                        .ThenBy(o => o.Method, StringComparer.Ordinal)
+                        .Select(o => new { toolName = o.ToolName, method = o.Method, path = o.PathTemplate, summary = o.Summary, parameterCount = o.Parameters.Count, hasBody = o.HasBody });
+                    return Results.Ok(new { baseUrl = connector.BaseUrl, count = connector.Operations.Count, operations = ops });
+                }
+                catch (Exception ex)
+                {
+                    return Results.BadRequest(new { error = ex.Message });
+                }
             });
 
             // ── Tool Groups ───────────────────────────────────────────────────
@@ -223,37 +246,6 @@ namespace McpNet.Dashboard
                 return Results.Ok(new { id, enabled });
             });
 
-            // ── Quarantine management ─────────────────────────────────────────
-            // Approve a quarantined server - it will connect on the next tool refresh.
-            group.MapPost("/servers/{id:guid}/approve", async (Guid id, IServerRepository repo, ToolAggregator aggregator, CancellationToken ct) =>
-            {
-                var s = await repo.GetByIdAsync(id, ct);
-                if (s is null) return Results.NotFound();
-                if (!s.Quarantined) return Results.Ok(new { id, quarantined = false, message = "Already approved." });
-                s.Quarantined = false;
-                await repo.UpdateAsync(s, ct);
-                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
-                return Results.Ok(new { id, quarantined = false, message = "Server approved. Tool refresh started." });
-            });
-
-            // Manually quarantine an approved server.
-            group.MapPost("/servers/{id:guid}/quarantine", async (Guid id, IServerRepository repo, ToolAggregator aggregator, CancellationToken ct) =>
-            {
-                var s = await repo.GetByIdAsync(id, ct);
-                if (s is null) return Results.NotFound();
-                s.Quarantined = true;
-                await repo.UpdateAsync(s, ct);
-                _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
-                return Results.Ok(new { id, quarantined = true });
-            });
-
-            // List all quarantined servers.
-            group.MapGet("/servers/quarantine", async (IServerRepository repo, CancellationToken ct) =>
-            {
-                var quarantined = (await repo.GetAllAsync(ct)).Where(s => s.Quarantined).ToList();
-                return Results.Ok(quarantined.Select(s => new { s.Id, s.Name, TransportType = s.TransportType.ToString(), s.StdioCommand, s.CreatedAt }));
-            });
-
             // ── Audit Logs ────────────────────────────────────────────────────
             group.MapGet("/audit", async (IAuditLogRepository? repo, CancellationToken ct) =>
             {
@@ -291,6 +283,19 @@ namespace McpNet.Dashboard
                     d.ErrorMessage,
                     d.Timestamp
                 })));
+
+            group.MapGet("/tools/search-metrics", (ToolAggregator aggregator) =>
+                Results.Ok(new
+                {
+                    enabled = !aggregator.SearchIndex.IsEmpty,
+                    tokensPerSchema = ToolSearchMetrics.TokensPerSchema,
+                    totalCalls = aggregator.SearchMetrics.TotalCalls,
+                    estimatedTokensSaved = aggregator.SearchMetrics.EstimatedTokensSaved,
+                    averageResultsPerCall = aggregator.SearchMetrics.AverageResultsPerCall,
+                    averageToolsAtCall = aggregator.SearchMetrics.AverageToolsAtCall,
+                    firstCallAt = aggregator.SearchMetrics.FirstCallAt == DateTime.MinValue ? (DateTime?)null : aggregator.SearchMetrics.FirstCallAt,
+                    lastCallAt  = aggregator.SearchMetrics.LastCallAt  == DateTime.MinValue ? (DateTime?)null : aggregator.SearchMetrics.LastCallAt
+                }));
 
             group.MapPost("/tools/refresh", async (ToolAggregator aggregator, IAuditLogRepository? auditRepo, IServiceProvider sp, CancellationToken ct) =>
             {
@@ -620,120 +625,6 @@ namespace McpNet.Dashboard
                 return Results.Ok();
             });
 
-            // ── Feature 2: tools version (for polling / ETag-based change detection) ──
-            group.MapGet("/tools/version", (ToolAggregator aggregator) =>
-                Results.Ok(new
-                {
-                    version = aggregator.ToolsVersion,
-                    lastRefreshedAt = aggregator.LastRefreshedAt == DateTime.MinValue
-                        ? (DateTime?)null
-                        : aggregator.LastRefreshedAt
-                }));
-
-            // ── BM25 search metrics ───────────────────────────────────────────
-            group.MapGet("/tools/search-metrics", (IServiceProvider sp) =>
-            {
-                var m = sp.GetService<McpNet.Gateway.Aggregation.ToolSearchMetrics>();
-                if (m is null) return Results.Ok(new { enabled = false });
-                return Results.Ok(new
-                {
-                    enabled = true,
-                    totalCalls = m.TotalCalls,
-                    totalResultsReturned = m.TotalResultsReturned,
-                    estimatedTokensSaved = m.EstimatedTokensSaved,
-                    averageResultsPerCall = Math.Round(m.AverageResultsPerCall, 1),
-                    averageToolsAtCall = Math.Round(m.AverageToolsAtCall, 1),
-                    tokensPerSchema = McpNet.Gateway.Aggregation.ToolSearchMetrics.TokensPerSchema,
-                    firstCallAt = m.FirstCallAt == DateTime.MinValue ? (DateTime?)null : m.FirstCallAt,
-                    lastCallAt  = m.LastCallAt  == DateTime.MinValue ? (DateTime?)null : m.LastCallAt
-                });
-            });
-
-            // ── BM25 live search (dashboard tool-search tester) ──────────────
-            group.MapGet("/tools/search", (string q, ToolAggregator aggregator) =>
-            {
-                if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest("q is required");
-                var results = aggregator.SearchTools(q.Trim(), 10);
-                // Record in metrics too (marked as "dashboard" search - separate from agent calls,
-                // but we skip recording so it doesn't inflate agent-savings numbers).
-                return Results.Ok(new
-                {
-                    query = q,
-                    totalTools = aggregator.GetEnabledTools().Count,
-                    results = results.Select(r => new
-                    {
-                        r.Tool.FullName,
-                        r.Tool.ServerName,
-                        Description = r.Tool.Definition?.Description,
-                        Score = Math.Round(r.Score, 3)
-                    })
-                });
-            });
-
-            // ── Feature 8: Claude Desktop config import ───────────────────────
-            // Accepts the JSON format used in claude_desktop_config.json:
-            // { "mcpServers": { "serverName": { "command": "...", "args": [...], "env": {...} } } }
-            group.MapPost("/import/claude-desktop", async (HttpContext ctx, IServerRepository repo, ServerRegistry registry, ToolAggregator aggregator, CancellationToken ct) =>
-            {
-                string bodyText;
-                try
-                {
-                    using var reader = new System.IO.StreamReader(ctx.Request.Body, System.Text.Encoding.UTF8);
-                    bodyText = await reader.ReadToEndAsync(ct);
-                }
-                catch { return Results.BadRequest("Could not read request body"); }
-
-                System.Text.Json.JsonElement root;
-                try { root = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(bodyText); }
-                catch { return Results.BadRequest("Invalid JSON"); }
-
-                if (!root.TryGetProperty("mcpServers", out var mcpServersEl)
-                    || mcpServersEl.ValueKind != System.Text.Json.JsonValueKind.Object)
-                    return Results.BadRequest("Missing or invalid 'mcpServers' key");
-
-                var existing = (await repo.GetAllAsync(ct)).Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                int added = 0;
-                int skipped = 0;
-
-                foreach (var prop in mcpServersEl.EnumerateObject())
-                {
-                    var name = prop.Name;
-                    if (existing.Contains(name)) { skipped++; continue; }
-
-                    var entry = prop.Value;
-                    var command = entry.TryGetProperty("command", out var cmdEl) ? cmdEl.GetString() ?? "" : "";
-                    if (string.IsNullOrWhiteSpace(command)) { skipped++; continue; }
-
-                    var args = new List<string>();
-                    if (entry.TryGetProperty("args", out var argsEl) && argsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-                        foreach (var a in argsEl.EnumerateArray())
-                            if (a.GetString() is { } s2) args.Add(s2);
-
-                    var env = new Dictionary<string, string>();
-                    if (entry.TryGetProperty("env", out var envEl) && envEl.ValueKind == System.Text.Json.JsonValueKind.Object)
-                        foreach (var e in envEl.EnumerateObject())
-                            if (e.Value.GetString() is { } v) env[e.Name] = v;
-
-                    var server = new RegisteredServer
-                    {
-                        Name = name,
-                        TransportType = UpstreamTransportType.Stdio,
-                        StdioCommand = command,
-                        StdioArgs = args,
-                        StdioEnvVars = env,
-                        CustomHeaders = new Dictionary<string, string>()
-                    };
-                    await registry.RegisterServerAsync(server, ct);
-                    existing.Add(name);
-                    added++;
-                }
-
-                if (added > 0)
-                    _ = Task.Run(async () => { try { await aggregator.RefreshAsync(); } catch { } });
-
-                return Results.Ok(new { serversAdded = added, serversSkipped = skipped });
-            });
-
             return group;
         }
 
@@ -752,7 +643,8 @@ namespace McpNet.Dashboard
         {
             s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(),
             s.StdioCommand,
-            s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt,
+            RestEndpoint = s.Rest is null ? null : (s.Rest.SpecUrl ?? s.Rest.BaseUrl),
+            s.Enabled, s.CreatedAt, s.UpdatedAt,
             HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true },
             OAuth = s.OAuth is { Enabled: true } ? "client_credentials" : null
         };
@@ -761,7 +653,7 @@ namespace McpNet.Dashboard
         private static object ServerDetailDto(RegisteredServer s) => new
         {
             s.Id, s.Name, s.Url, TransportType = s.TransportType.ToString(),
-            s.Enabled, s.Quarantined, s.CreatedAt, s.UpdatedAt,
+            s.Enabled, s.CreatedAt, s.UpdatedAt,
             s.StdioCommand, s.StdioArgs, s.StdioWorkingDirectory,
             // Return env var keys only (never values) so the dashboard can show which
             // keys are configured without leaking secrets to the browser.
@@ -770,7 +662,8 @@ namespace McpNet.Dashboard
             HasAuth = !string.IsNullOrEmpty(s.BearerToken) || s.CustomHeaders.Count > 0 || s.OAuth is { Enabled: true },
             OAuth = s.OAuth is { Enabled: true }
                 ? new { s.OAuth.Enabled, s.OAuth.TokenUrl, s.OAuth.ClientId, s.OAuth.Scopes }
-                : null
+                : null,
+            Rest = s.Rest
         };
 
         private static object ClientDto(McpClient c) => new
@@ -811,8 +704,7 @@ namespace McpNet.Dashboard
             public string? StdioWorkingDirectory { get; set; }
             public System.Collections.Generic.Dictionary<string, string>? StdioEnvVars { get; set; }
             public OAuthConfig? OAuth { get; set; }
-            /// <summary>When true, the server is approved immediately (not quarantined). Default false.</summary>
-            public bool AutoApprove { get; set; } = false;
+            public RestApiConfig? Rest { get; set; }
         }
 
         private class CreateGroupRequest
