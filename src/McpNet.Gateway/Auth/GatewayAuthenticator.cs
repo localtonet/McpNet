@@ -1,9 +1,8 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McpNet.Gateway.Abstractions;
 using McpNet.Gateway.Models;
+
 namespace McpNet.Gateway.Auth
 {
     public enum GatewayMode { Dev, Enterprise }
@@ -30,11 +29,7 @@ namespace McpNet.Gateway.Auth
         public bool ValidateAdminToken(string? token)
         {
             if (IsDevMode) return true;
-            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(_options.AdminToken)) return false;
-            // Constant-time comparison to avoid leaking the token via timing side-channels.
-            var a = Encoding.UTF8.GetBytes(token);
-            var b = Encoding.UTF8.GetBytes(_options.AdminToken);
-            return CryptographicOperations.FixedTimeEquals(a, b);
+            return !string.IsNullOrEmpty(token) && token == _options.AdminToken;
         }
 
         public async Task<McpClient?> AuthenticateMcpClientAsync(string? bearerToken, CancellationToken ct = default)

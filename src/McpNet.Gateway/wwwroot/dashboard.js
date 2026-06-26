@@ -271,6 +271,7 @@ function loadTab(name) {
   if (name === 'settings')  loadSettings();
 }
 
+let _suppressHistory = false;
 function switchTab(name, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.side-nav button').forEach(b => b.classList.remove('active'));
@@ -279,6 +280,10 @@ function switchTab(name, btn) {
   const meta = PAGE_META[name] || ['', ''];
   document.getElementById('pageTitle').textContent = meta[0];
   document.getElementById('pageSub').textContent = meta[1];
+  document.title = meta[0] + ' — McpNet Gateway';
+  if (!_suppressHistory && window.location.hash !== '#' + name) {
+    history.pushState({ tab: name }, '', '#' + name);
+  }
   loadTab(name);
 }
 
@@ -335,6 +340,15 @@ function switchTabByName(name) {
   switchTab(name, btn);
 }
 
+window.addEventListener('popstate', function(e) {
+  const hash = window.location.hash.slice(1);
+  const name = (e.state && e.state.tab) || hash || 'overview';
+  const resolved = document.getElementById('tab-' + name) ? name : 'overview';
+  _suppressHistory = true;
+  switchTabByName(resolved);
+  _suppressHistory = false;
+});
+
 // ── Servers ───────────────────────────────────────────────────
 async function loadServers() {
   const data = await api('GET', '/servers');
@@ -367,7 +381,7 @@ function renderServers() {
     return `
     <tr>
       <td><strong>${esc(s.name)}</strong></td>
-      <td><code>${esc(s.url || s.stdioCommand || '')}</code></td>
+      <td><code>${esc(s.url || s.stdioCommand || s.restEndpoint || '')}</code></td>
       <td><span class="chip blue plain">${esc(s.transportType)}</span></td>
       <td>${s.hasAuth ? '<span class="chip green">Auth</span>' : '<span class="chip gray plain">None</span>'}</td>
       <td>${quarantinedChip}</td>
@@ -454,12 +468,39 @@ async function checkHealth(id) {
   }
 }
 
+function selectTransport(prefix, value) {
+  const sel = document.getElementById(prefix + '_transport');
+  if (sel) sel.value = value;
+  const vals = ['StreamableHttp', 'Sse', 'Stdio', 'RestOpenApi'];
+  const body = sel ? (sel.closest('.modal-body') || sel.parentElement) : null;
+  if (body) {
+    body.querySelectorAll('.transport-card').forEach((card, i) => {
+      const active = vals[i] === value;
+      card.classList.toggle('active', active);
+      // Always set inline styles so switching cards clears previous state
+      card.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+      card.style.background  = active ? 'var(--accent-soft)' : 'rgba(255,255,255,.02)';
+      const icon = card.querySelector('[data-icon]');
+      if (icon) {
+        icon.style.background = active ? 'var(--accent)' : 'rgba(255,255,255,.1)';
+        icon.style.color      = active ? '#fff'          : 'var(--muted)';
+      }
+    });
+  }
+  if (prefix === 's') updateServerForm();
+  else if (prefix === 'es') updateEditServerForm();
+}
+
 function openAddServer() {
-  ['s_name','s_url','s_token','s_command','s_args','s_workdir','s_headers','s_oauth_url','s_oauth_id','s_oauth_secret','s_oauth_scopes'].forEach(id => {
+  ['s_name','s_url','s_token','s_command','s_args','s_workdir','s_headers','s_oauth_url','s_oauth_id','s_oauth_secret','s_oauth_scopes',
+   's_rest_specurl','s_rest_inlinespec','s_rest_baseurl','s_rest_token'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('s_oauth_enabled').checked = false;
+  const priv = document.getElementById('s_rest_private'); if (priv) priv.checked = true;
+  resetRestOps('s');
+  selectTransport('s', 'StreamableHttp');
   openModal('addServerModal');
 }
 
@@ -486,25 +527,32 @@ function buildOAuth(prefix) {
 
 function updateServerForm() {
   const t = document.getElementById('s_transport').value;
-  document.getElementById('s_httpFields').style.display = t !== 'Stdio' ? '' : 'none';
+  document.getElementById('s_httpFields').style.display  = (t === 'StreamableHttp' || t === 'Sse') ? '' : 'none';
   document.getElementById('s_stdioFields').style.display = t === 'Stdio' ? '' : 'none';
+  document.getElementById('s_restFields').style.display  = t === 'RestOpenApi' ? '' : 'none';
 }
 
 async function addServer() {
   const transport = document.getElementById('s_transport').value;
   const hdrs = parseHeaders(document.getElementById('s_headers').value);
+  const isRest = transport === 'RestOpenApi';
+  const isStdio = transport === 'Stdio';
+  const isHttp = transport === 'StreamableHttp' || transport === 'Sse';
   const body = {
     name:         document.getElementById('s_name').value.trim(),
     transportType: transport,
-    url:          transport !== 'Stdio' ? document.getElementById('s_url').value.trim() : null,
-    bearerToken:  transport !== 'Stdio' ? (document.getElementById('s_token').value.trim() || null) : null,
-    stdioCommand: transport === 'Stdio' ? document.getElementById('s_command').value.trim() : null,
-    stdioArgs:    transport === 'Stdio' ? document.getElementById('s_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
-    stdioWorkingDirectory: transport === 'Stdio' ? (document.getElementById('s_workdir').value.trim() || null) : null,
+    url:          isHttp ? document.getElementById('s_url').value.trim() : null,
+    bearerToken:  isHttp ? (document.getElementById('s_token').value.trim() || null)
+                : isRest ? (document.getElementById('s_rest_token').value.trim() || null) : null,
+    stdioCommand: isStdio ? document.getElementById('s_command').value.trim() : null,
+    stdioArgs:    isStdio ? document.getElementById('s_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
+    stdioWorkingDirectory: isStdio ? (document.getElementById('s_workdir').value.trim() || null) : null,
     customHeaders: Object.keys(hdrs).length ? hdrs : null,
-    oAuth: buildOAuth('s_oauth')
+    oAuth: buildOAuth('s_oauth'),
+    rest:  isRest ? buildRest('s') : null
   };
   if (!body.name) { toast('Name is required', 'danger'); return; }
+  if (isRest && !body.rest) return;
   const result = await api('POST', '/servers', body);
   if (result) {
     closeModal('addServerModal');
@@ -514,6 +562,138 @@ async function addServer() {
     // (tools + health) so the user never has to click Ping or Refresh Tools.
     autoFetchAfterRegister(body.name);
   }
+}
+
+// ── REST / OpenAPI operation picker ───────────────────────────
+// Holds the operations returned by the last preview, per form prefix ('s' = add, 'es' = edit).
+const _restPreview = { s: [], es: [] };
+
+function resetRestOps(prefix) {
+  _restPreview[prefix] = [];
+  const list = document.getElementById(prefix + '_rest_ops');
+  if (list) list.innerHTML = '';
+  const meta = document.getElementById(prefix + '_rest_meta');
+  if (meta) meta.textContent = '';
+}
+
+// Gathers the REST config from a form. Returns null (and toasts) when invalid.
+function buildRest(prefix) {
+  const specUrl    = document.getElementById(prefix + '_rest_specurl').value.trim();
+  const inlineSpec = document.getElementById(prefix + '_rest_inlinespec').value.trim();
+  const baseUrl    = document.getElementById(prefix + '_rest_baseurl').value.trim();
+  const priv       = document.getElementById(prefix + '_rest_private').checked;
+  if (!specUrl && !inlineSpec) {
+    toast('Spec required', 'Provide a spec URL or paste the OpenAPI document.', 'danger');
+    return null;
+  }
+  const cfg = {
+    specUrl: specUrl || null,
+    inlineSpec: inlineSpec || null,
+    baseUrl: baseUrl || null,
+    allowPrivateNetwork: priv
+  };
+  // If the operator previewed and unchecked some operations, only include the checked ones.
+  const list = document.getElementById(prefix + '_rest_ops');
+  const boxes = list ? Array.from(list.querySelectorAll('input[type=checkbox][data-tool]')) : [];
+  if (boxes.length) {
+    const selected = boxes.filter(b => b.checked).map(b => b.getAttribute('data-tool'));
+    if (!selected.length) {
+      toast('No operations selected', 'Select at least one operation to expose.', 'danger');
+      return null;
+    }
+    // Only set the filter when the user actually narrowed the selection.
+    if (selected.length < boxes.length) cfg.includeOperations = selected;
+  }
+  return cfg;
+}
+
+// Fetches & parses the spec via the gateway and renders a checkbox per operation.
+async function previewRestOps(prefix) {
+  prefix = prefix || 's';
+  const specUrl    = document.getElementById(prefix + '_rest_specurl').value.trim();
+  const inlineSpec = document.getElementById(prefix + '_rest_inlinespec').value.trim();
+  const baseUrl    = document.getElementById(prefix + '_rest_baseurl').value.trim();
+  const priv       = document.getElementById(prefix + '_rest_private').checked;
+  if (!specUrl && !inlineSpec) {
+    toast('Spec required', 'Provide a spec URL or paste the OpenAPI document.', 'danger');
+    return;
+  }
+  const list  = document.getElementById(prefix + '_rest_ops');
+  const meta  = document.getElementById(prefix + '_rest_meta');
+  const label = document.getElementById(prefix + '_rest_loadlabel');
+  const prevLabel = label.textContent;
+  label.textContent = 'Loading…';
+  meta.textContent = '';
+  list.innerHTML = '';
+  try {
+    const r = await fetch(BASE + '/api/rest/preview', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        specUrl: specUrl || null,
+        inlineSpec: inlineSpec || null,
+        baseUrl: baseUrl || null,
+        allowPrivateNetwork: priv
+      })
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (data && data.error) || (r.status + ' ' + r.statusText);
+      list.innerHTML = '<div class="rest-ops-error">' + esc(msg) + '</div>';
+      return;
+    }
+    if (!data || !data.operations) return;
+    _restPreview[prefix] = data.operations;
+    meta.textContent = data.baseUrl ? ('→ ' + data.baseUrl) : '';
+    renderRestOps(prefix, data.operations);
+  } catch (e) {
+    list.innerHTML = '<div class="rest-ops-error">' + esc((e && e.message) || 'Failed to load spec.') + '</div>';
+  } finally {
+    label.textContent = prevLabel;
+  }
+}
+
+function renderRestOps(prefix, ops) {
+  const list = document.getElementById(prefix + '_rest_ops');
+  if (!ops.length) {
+    list.innerHTML = '<div class="rest-ops-error">No operations found in this spec.</div>';
+    return;
+  }
+  const rows = ops.map((o, i) => {
+    const m = (o.method || '').toLowerCase();
+    const mcls = ['get','post','put','patch','delete'].includes(m) ? m : 'other';
+    const sub = o.summary ? esc(o.summary) : (o.toolName ? esc(o.toolName) : '');
+    return `
+      <label class="rest-op" title="${esc(o.toolName || '')}">
+        <input type="checkbox" data-tool="${esc(o.toolName)}" checked onchange="updateRestOpCount('${prefix}')" />
+        <span class="ro-method ${mcls}">${esc(o.method || '?')}</span>
+        <span class="ro-body">
+          <span class="ro-path">${esc(o.path || '')}</span>
+          ${sub ? `<span class="ro-summary">${sub}</span>` : ''}
+        </span>
+      </label>`;
+  }).join('');
+  list.innerHTML = `
+    <div class="rest-ops-toolbar">
+      <a onclick="toggleAllRestOps('${prefix}', true)">Select all</a>
+      <a onclick="toggleAllRestOps('${prefix}', false)">Clear</a>
+      <span class="ro-count" id="${prefix}_rest_count"></span>
+    </div>${rows}`;
+  updateRestOpCount(prefix);
+}
+
+function toggleAllRestOps(prefix, on) {
+  const list = document.getElementById(prefix + '_rest_ops');
+  list.querySelectorAll('input[type=checkbox][data-tool]').forEach(b => { b.checked = on; });
+  updateRestOpCount(prefix);
+}
+
+function updateRestOpCount(prefix) {
+  const list = document.getElementById(prefix + '_rest_ops');
+  const boxes = Array.from(list.querySelectorAll('input[type=checkbox][data-tool]'));
+  const sel = boxes.filter(b => b.checked).length;
+  const c = document.getElementById(prefix + '_rest_count');
+  if (c) c.textContent = sel + ' / ' + boxes.length + ' selected';
 }
 
 // Shared post-register flow: poll the server-side refresh, surface per-server result.
@@ -1032,31 +1212,46 @@ async function openEditServer(id) {
   document.getElementById('es_oauth_id').value  = o ? (o.clientId || '') : '';
   document.getElementById('es_oauth_secret').value = '';
   document.getElementById('es_oauth_scopes').value = o ? (o.scopes || []).join(' ') : '';
-  updateEditServerForm();
+  // REST / OpenAPI config.
+  const rest = s.rest || s.Rest;
+  document.getElementById('es_rest_specurl').value   = rest ? (rest.specUrl || '') : '';
+  document.getElementById('es_rest_inlinespec').value = rest ? (rest.inlineSpec || '') : '';
+  document.getElementById('es_rest_baseurl').value   = rest ? (rest.baseUrl || '') : '';
+  document.getElementById('es_rest_token').value     = '';
+  document.getElementById('es_rest_private').checked = rest ? (rest.allowPrivateNetwork !== false) : true;
+  resetRestOps('es');
+  selectTransport('es', s.transportType || 'StreamableHttp');
   openModal('editServerModal');
 }
 
 function updateEditServerForm() {
   const t = document.getElementById('es_transport').value;
-  document.getElementById('es_httpFields').style.display = t !== 'Stdio' ? '' : 'none';
+  document.getElementById('es_httpFields').style.display  = (t === 'StreamableHttp' || t === 'Sse') ? '' : 'none';
   document.getElementById('es_stdioFields').style.display = t === 'Stdio' ? '' : 'none';
+  document.getElementById('es_restFields').style.display  = t === 'RestOpenApi' ? '' : 'none';
 }
 
 async function saveEditServer() {
   const transport = document.getElementById('es_transport').value;
   const hdrs = parseHeaders(document.getElementById('es_headers').value);
+  const isRest = transport === 'RestOpenApi';
+  const isStdio = transport === 'Stdio';
+  const isHttp = transport === 'StreamableHttp' || transport === 'Sse';
   const body = {
     name:         document.getElementById('es_name').value.trim(),
     transportType: transport,
-    url:          transport !== 'Stdio' ? document.getElementById('es_url').value.trim() : null,
-    bearerToken:  transport !== 'Stdio' ? (document.getElementById('es_token').value.trim() || null) : null,
-    stdioCommand: transport === 'Stdio' ? document.getElementById('es_command').value.trim() : null,
-    stdioArgs:    transport === 'Stdio' ? document.getElementById('es_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
-    stdioWorkingDirectory: transport === 'Stdio' ? (document.getElementById('es_workdir').value.trim() || null) : null,
+    url:          isHttp ? document.getElementById('es_url').value.trim() : null,
+    bearerToken:  isHttp ? (document.getElementById('es_token').value.trim() || null)
+                : isRest ? (document.getElementById('es_rest_token').value.trim() || null) : null,
+    stdioCommand: isStdio ? document.getElementById('es_command').value.trim() : null,
+    stdioArgs:    isStdio ? document.getElementById('es_args').value.split('\n').map(l => l.trim()).filter(Boolean) : [],
+    stdioWorkingDirectory: isStdio ? (document.getElementById('es_workdir').value.trim() || null) : null,
     customHeaders: Object.keys(hdrs).length ? hdrs : null,
-    oAuth: buildOAuth('es_oauth')
+    oAuth: buildOAuth('es_oauth'),
+    rest:  isRest ? buildRest('es') : null
   };
   if (!body.name) { toast('Name is required', '', 'danger'); return; }
+  if (isRest && !body.rest) return;
   const result = await api('PUT', '/servers/' + _editServerId, body);
   if (result) { closeModal('editServerModal'); await loadServers(); toast('Server updated', body.name + ' was updated.', 'success'); }
 }
@@ -1395,7 +1590,13 @@ async function runBm25Search() {
 (async () => {
   await restoreAdminTokenEncrypted();
   await loadInfo();
-  await loadOverview();
+  // Route to the tab from URL hash so F5 stays on the current page
+  const _initHash = window.location.hash.slice(1);
+  const _initTab = (_initHash && document.getElementById('tab-' + _initHash)) ? _initHash : 'overview';
+  history.replaceState({ tab: _initTab }, '', '#' + _initTab);
+  _suppressHistory = true;
+  switchTabByName(_initTab);
+  _suppressHistory = false;
   // Background poll: every 60s update tool count + health chips from diagnostics
   setInterval(async () => {
     try {

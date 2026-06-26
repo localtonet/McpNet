@@ -28,8 +28,6 @@ namespace McpNet.Gateway.Routing
         private readonly IAuditLogRepository? _auditLog;
         private readonly GatewaySessionManager _sessions;
         private readonly MetaToolHandler? _metaTools;
-        private readonly GatewayRateLimiter? _rateLimiter;
-        private readonly ToolResponseCache? _responseCache;
 
         public GatewayRequestRouter(
             ToolAggregator aggregator,
@@ -39,9 +37,7 @@ namespace McpNet.Gateway.Routing
             GatewaySessionManager sessions,
             IClientRepository? clientRepo = null,
             IAuditLogRepository? auditLog = null,
-            MetaToolHandler? metaTools = null,
-            GatewayRateLimiter? rateLimiter = null,
-            ToolResponseCache? responseCache = null)
+            MetaToolHandler? metaTools = null)
         {
             _aggregator = aggregator;
             _registry = registry;
@@ -51,8 +47,6 @@ namespace McpNet.Gateway.Routing
             _clientRepo = clientRepo;
             _auditLog = auditLog;
             _metaTools = metaTools;
-            _rateLimiter = rateLimiter;
-            _responseCache = responseCache;
         }
 
         public async Task<JsonRpcResponse> HandleAsync(JsonRpcRequest request, string? sessionId, McpClient? client, CancellationToken ct = default)
@@ -142,49 +136,41 @@ namespace McpNet.Gateway.Routing
             if (!tool.Enabled)
                 return new JsonRpcResponse { Id = request.Id, Error = new JsonRpcError { Code = -32601, Message = $"Tool '{p.Name}' is disabled" } };
 
-            // Feature 3: validate arguments against the tool's JSON schema before forwarding.
-            var validationError = JsonSchemaValidator.Validate(tool.Definition.InputSchema, p.Arguments);
-            if (validationError != null)
-                return new JsonRpcResponse
-                {
-                    Id = request.Id,
-                    Error = new JsonRpcError { Code = -32602, Message = $"Invalid params: {validationError}" }
-                };
-
             var server = (await _serverRepo.GetAllAsync(ct).ConfigureAwait(false))
                 .FirstOrDefault(s => s.Id == tool.ServerId)
                 ?? throw new InvalidOperationException($"Server for tool '{p.Name}' not found");
 
             // Rate limiting: per-server override takes precedence over global limit.
-            // Uses an in-memory sliding window (GatewayRateLimiter) - O(calls-in-window) per check,
-            // no disk I/O required.
-            if (client != null && _rateLimiter != null)
+            if (client != null && _auditLog != null)
             {
                 var serverOverride = client.ServerRateLimits.FirstOrDefault(r => r.ServerId == server.Id);
-                if (serverOverride != null)
+                int effectiveLimit = serverOverride != null ? serverOverride.LimitPerMinute : client.RateLimitPerMinute;
+                if (effectiveLimit > 0)
                 {
-                    if (!_rateLimiter.TryRecord(client.Id, server.Id, serverOverride.LimitPerMinute))
+                    var recent = await _auditLog.GetRecentAsync(effectiveLimit + 1, ct).ConfigureAwait(false);
+                    var callsLastMinute = recent.Count(a =>
+                        a.ClientId == client.Id.ToString() &&
+                        a.ServerName == server.Name &&
+                        a.Timestamp >= DateTime.UtcNow.AddMinutes(-1));
+                    // For global limit: count all servers, not just this one.
+                    if (serverOverride == null)
+                        callsLastMinute = recent.Count(a =>
+                            a.ClientId == client.Id.ToString() &&
+                            a.Timestamp >= DateTime.UtcNow.AddMinutes(-1));
+                    if (callsLastMinute >= effectiveLimit)
                         return new JsonRpcResponse
                         {
                             Id = request.Id,
-                            Error = new JsonRpcError { Code = -32029, Message = $"Rate limit exceeded for server '{server.Name}' ({serverOverride.LimitPerMinute} calls/min)." }
-                        };
-                }
-                else if (client.RateLimitPerMinute > 0)
-                {
-                    if (!_rateLimiter.TryRecord(client.Id, null, client.RateLimitPerMinute))
-                        return new JsonRpcResponse
-                        {
-                            Id = request.Id,
-                            Error = new JsonRpcError { Code = -32029, Message = $"Rate limit exceeded ({client.RateLimitPerMinute} calls/min)." }
+                            Error = new JsonRpcError
+                            {
+                                Code = -32029,
+                                Message = serverOverride != null
+                                    ? $"Rate limit exceeded for server '{server.Name}' ({effectiveLimit} calls/min)."
+                                    : $"Rate limit exceeded ({effectiveLimit} calls/min)."
+                            }
                         };
                 }
             }
-
-            // Feature 5: return a cached response when TTL is configured and we have a hit.
-            if (_responseCache != null && server.CacheTtlSeconds > 0
-                && _responseCache.TryGet(p.Name, p.Arguments, out var cachedResult))
-                return new JsonRpcResponse { Id = request.Id, Result = cachedResult };
 
             var upstreamClient = _registry.GetOrCreateClient(server);
             if (!upstreamClient.IsConnected)
@@ -248,10 +234,6 @@ namespace McpNet.Gateway.Routing
                     DurationMs = sw.ElapsedMilliseconds
                 }, ct).ConfigureAwait(false);
 
-            // Feature 5: populate response cache for future identical calls.
-            if (_responseCache != null && server.CacheTtlSeconds > 0 && !callResult.IsError)
-                _responseCache.Set(server.Name, p.Name, p.Arguments, callResult, server.CacheTtlSeconds);
-
             return new JsonRpcResponse { Id = request.Id, Result = callResult };
         }
 
@@ -304,13 +286,7 @@ namespace McpNet.Gateway.Routing
                     var upClient = _registry.GetOrCreateClient(server);
                     if (!upClient.IsConnected) await upClient.ConnectAsync(ct).ConfigureAwait(false);
                     var resources = await upClient.ListResourcesAsync(ct).ConfigureAwait(false);
-                    foreach (var r in resources)
-                    {
-                        // Prefix the URI with the server name so ReadResource can route
-                        // deterministically even when two servers expose the same URI.
-                        r.Uri = $"{server.Name}__{r.Uri}";
-                        allResources.Add(r);
-                    }
+                    allResources.AddRange(resources);
                 }
                 catch { }
             }
@@ -320,43 +296,19 @@ namespace McpNet.Gateway.Routing
         private async Task<JsonRpcResponse> HandleResourcesReadAsync(JsonRpcRequest request, CancellationToken ct)
         {
             var p = McpJsonOptions.Convert<ResourceReadParams>(request.Params)!;
-
-            // URIs are namespaced as "serverName__originalUri" by HandleResourcesListAsync.
-            // Parse the prefix to route the read to the correct upstream server.
-            var sep = p.Uri.IndexOf("__", StringComparison.Ordinal);
-            if (sep > 0)
+            var servers = await _serverRepo.GetAllAsync(ct).ConfigureAwait(false);
+            foreach (var server in servers.Where(s => s.Enabled))
             {
-                var serverName = p.Uri.Substring(0, sep);
-                var originalUri = p.Uri.Substring(sep + 2);
-                var servers = await _serverRepo.GetAllAsync(ct).ConfigureAwait(false);
-                var server = servers.FirstOrDefault(s => s.Name == serverName && s.Enabled);
-                if (server != null)
+                try
                 {
                     var upClient = _registry.GetOrCreateClient(server);
                     if (!upClient.IsConnected) await upClient.ConnectAsync(ct).ConfigureAwait(false);
-                    var result = await upClient.ReadResourceAsync(originalUri, ct).ConfigureAwait(false);
+                    var result = await upClient.ReadResourceAsync(p.Uri, ct).ConfigureAwait(false);
                     if (result.Contents.Count > 0)
                         return new JsonRpcResponse { Id = request.Id, Result = result };
                 }
+                catch { }
             }
-
-            // Fallback: scan all enabled servers (backward compat for un-namespaced URIs).
-            {
-                var servers = await _serverRepo.GetAllAsync(ct).ConfigureAwait(false);
-                foreach (var server in servers.Where(s => s.Enabled))
-                {
-                    try
-                    {
-                        var upClient = _registry.GetOrCreateClient(server);
-                        if (!upClient.IsConnected) await upClient.ConnectAsync(ct).ConfigureAwait(false);
-                        var result = await upClient.ReadResourceAsync(p.Uri, ct).ConfigureAwait(false);
-                        if (result.Contents.Count > 0)
-                            return new JsonRpcResponse { Id = request.Id, Result = result };
-                    }
-                    catch { }
-                }
-            }
-
             return MethodNotFound(request.Id, p.Uri);
         }
 

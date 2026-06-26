@@ -224,23 +224,118 @@
 
 
     /* ── Modal ──────────────────────────────────────────── */
-    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(5,7,12,.66); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(5,7,12,.72); backdrop-filter: blur(6px); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
     .modal-backdrop.open { display: flex; animation: fade .2s ease; }
-    .modal { background: var(--card); border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px; min-width: 440px; max-width: 560px; width: 100%; box-shadow: var(--shadow); animation: pop .22s cubic-bezier(.18,.89,.32,1.28); }
     @keyframes pop { from { opacity: 0; transform: scale(.95) translateY(8px); } to { opacity: 1; transform: none; } }
+
+    /* Base modal — simple dialogs without sections */
+    .modal { background: var(--card); border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px; width: 100%; max-width: 740px; box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset; animation: pop .22s cubic-bezier(.18,.89,.32,1.28); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; }
+
+    /* Structured modal — head / body / footer sections (add/edit server etc.) */
+    .modal.modal-form { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .modal-head-icon { width: 40px; height: 40px; border-radius: 11px; background: var(--accent-soft); display: grid; place-items: center; flex-shrink: 0; }
+    .modal-head-icon svg { width: 20px; height: 20px; color: var(--accent-hover); }
+    .modal-head-text { flex: 1; min-width: 0; }
+    .modal-head-text h3 { font-size: 16px; font-weight: 700; margin: 0 0 3px; }
+    .modal-head-text p { color: var(--muted); font-size: 12.5px; margin: 0; line-height: 1.5; }
+    .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; width: 30px; height: 30px; display: grid; place-items: center; font-size: 18px; border-radius: 7px; flex-shrink: 0; margin: -4px -4px 0 0; }
+    .modal-close:hover { color: var(--text); background: var(--bg); }
+    .modal-body { overflow-y: auto; padding: 22px 24px; flex: 1; min-height: 0; }
+    .modal-body::-webkit-scrollbar { width: 5px; } .modal-body::-webkit-scrollbar-track { background: transparent; } .modal-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    /* footers */
+    .modal .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+    .modal.modal-form .modal-footer { margin-top: 0; padding: 18px 26px; border-top: 1px solid var(--border); flex-shrink: 0; background: rgba(0,0,0,.12); }
+    /* legacy head/desc inside simple modals */
     .modal h3 { margin-bottom: 6px; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
     .modal .modal-desc { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
-    .modal label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; margin-top: 14px; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
-    .modal input, .modal select, .modal textarea {
-      width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
-      padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); transition: .15s;
-    }
-    .modal input:focus, .modal select:focus, .modal textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .modal textarea { resize: vertical; min-height: 80px; font-family: var(--mono); }
-    .modal .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
     .modal-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; }
     .modal-icon.warn { background: rgba(245,158,11,.14); color: var(--warning); }
     .modal-icon svg { width: 20px; height: 20px; }
+
+    /* form fields inside modal */
+    .modal label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; margin-top: 20px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+    .modal label:first-child { margin-top: 0; }
+    .modal input, .modal select, .modal textarea {
+      width: 100%; box-sizing: border-box; background: var(--bg-elev); border: 1px solid var(--border-strong); color: var(--text);
+      padding: 11px 14px; border-radius: var(--radius-sm); font-size: 13.5px; font-family: var(--font); transition: border-color .15s, box-shadow .15s;
+    }
+    .modal input:focus, .modal select:focus, .modal textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .modal textarea { resize: vertical; min-height: 80px; font-family: var(--mono); }
+
+    /* transport type picker */
+    .transport-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+    .transport-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 9px; padding: 16px 8px 14px; border-radius: 12px; border: 1.5px solid var(--border); cursor: pointer; transition: border-color .15s, background .15s; user-select: none; min-width: 0; }
+    .transport-card:hover { border-color: var(--accent); background: rgba(99,102,241,.06); }
+    .transport-card.active { border-color: var(--accent) !important; background: var(--accent-soft) !important; }
+    .transport-card .tc-icon { width: 30px; height: 30px; border-radius: 7px; background: rgba(255,255,255,.06); display: grid; place-items: center; flex-shrink: 0; }
+    .transport-card.active .tc-icon { background: var(--accent); }
+    .transport-card .tc-icon svg { width: 15px; height: 15px; color: var(--muted); }
+    .transport-card.active .tc-icon svg { color: #fff; }
+    .transport-card .tc-body { min-width: 0; overflow: hidden; }
+    .transport-card .tc-name { font-size: 13px; font-weight: 600; color: var(--text); display: block; line-height: 1.25; }
+    .transport-card .tc-desc { font-size: 10.5px; color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* section dividers */
+    .form-section-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 12px; }
+    .form-section-divider span { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--accent-hover); white-space: nowrap; }
+    .form-section-divider::before, .form-section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* mobile */
+    @media (max-width: 540px) {
+      /* layout */
+      .topbar { padding: 10px 14px; }
+      .topbar .page-sub { display: none; }
+      .content { padding: 14px 14px 40px; }
+      .search { width: auto; min-width: 100px; flex: 1; }
+      .toolbar { flex-wrap: wrap; }
+      /* tables: enable horizontal scroll inside cards */
+      .card { overflow-x: auto; }
+      table { min-width: 480px; }
+      /* metrics: 2 per row */
+      .metrics-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
+      /* modal — bottom sheet; use !important to override inline styles */
+      .modal-backdrop { padding: 0 !important; align-items: flex-end !important; }
+      .modal { border-radius: 18px 18px 0 0 !important; max-height: 92dvh !important; max-width: 100% !important; width: 100% !important; }
+      .modal.modal-form { border-radius: 18px 18px 0 0 !important; }
+      .modal-head { padding: 14px 16px 12px !important; gap: 12px !important; }
+      .modal-head > div:first-child { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+      .modal-body { padding: 14px 16px !important; }
+      .modal.modal-form .modal-footer { padding: 10px 16px !important; }
+      .modal .modal-footer { margin-top: 14px; }
+      /* transport grid: 2×2 on mobile */
+      [data-tgrid] { grid-template-columns: repeat(2, 1fr) !important; }
+      .transport-card { padding: 12px 6px 10px !important; }
+    }
+    @media (max-width: 400px) {
+      .side-nav button { font-size: 12px; padding: 7px 8px; }
+      .topbar { padding: 8px 12px; }
+      .content { padding: 10px 10px 40px; }
+    }
+
+    /* ── REST / OpenAPI operation picker ─────────────────── */
+    .rest-ops-bar { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+    .btn.sm { padding: 7px 14px; font-size: 12px; }
+    .rest-ops-meta { font-size: 12px; color: var(--muted); }
+    .rest-ops-list { margin-top: 12px; max-height: 280px; overflow-y: auto; border-radius: 10px; }
+    .rest-ops-list:not(:empty) { border: 1px solid var(--border); background: var(--bg); padding: 6px; }
+    .rest-ops-toolbar { display: flex; align-items: center; gap: 14px; padding: 6px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+    .rest-ops-toolbar a { color: var(--accent-hover); font-size: 11.5px; cursor: pointer; text-decoration: none; }
+    .rest-ops-toolbar a:hover { text-decoration: underline; }
+    .rest-ops-toolbar .ro-count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+    .rest-op { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+    .rest-op:hover { background: var(--card); }
+    .rest-op input { width: auto; margin: 0; }
+    .rest-op .ro-method { font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; text-transform: uppercase; letter-spacing: .4px; flex-shrink: 0; min-width: 48px; text-align: center; }
+    .ro-method.get { background: rgba(59,130,246,.16); color: #60a5fa; }
+    .ro-method.post { background: rgba(34,197,94,.16); color: #4ade80; }
+    .ro-method.put, .ro-method.patch { background: rgba(245,158,11,.16); color: #fbbf24; }
+    .ro-method.delete { background: rgba(239,68,68,.16); color: #f87171; }
+    .ro-method.other { background: rgba(148,163,184,.16); color: #cbd5e1; }
+    .rest-op .ro-body { min-width: 0; flex: 1; }
+    .rest-op .ro-path { font-family: var(--mono); font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .rest-op .ro-summary { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .rest-ops-error { color: var(--danger); font-size: 12.5px; padding: 10px 4px; }
 
     /* ── Toggle ─────────────────────────────────────────── */
     .toggle-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
@@ -278,10 +373,15 @@
 
     @media (max-width: 880px) {
       .app { grid-template-columns: 1fr; }
-      .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; }
-      .side-nav { flex-direction: row; flex-wrap: wrap; flex: 1 1 100%; }
+      .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; overflow-x: hidden; }
+      .side-nav { flex-direction: row; flex-wrap: nowrap; flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .side-nav::-webkit-scrollbar { display: none; }
       .side-nav .nav-label { display: none; }
       .side-nav button .count { display: none; }
+      .side-nav button { flex-shrink: 0; }
+      .side-foot { flex: 0 0 100%; }
+      .topbar { padding: 14px 20px; }
+      .content { padding: 20px 20px 40px; }
     }
 
     /* ── form-check-list (client permissions / server rate limits) ── */
@@ -647,51 +747,110 @@
 
 <!-- Add Server Modal -->
 <div class="modal-backdrop" id="addServerModal">
-  <div class="modal">
-    <h3>Add Upstream Server</h3>
-    <p class="modal-desc">Register an MCP server. Its tools are fetched automatically once added.</p>
-    <label>Name <span class="req">*</span></label>
-    <input id="s_name" placeholder="my-server" />
-    <span class="field-hint">A unique label used to namespace this server's tools.</span>
-    <label>Transport Type</label>
-    <select id="s_transport" onchange="updateServerForm()">
-      <option value="StreamableHttp">Streamable HTTP</option>
-      <option value="Sse">SSE (legacy)</option>
-      <option value="Stdio">Stdio / subprocess</option>
-    </select>
-    <div id="s_httpFields">
-      <label>Server URL <span class="req">*</span></label>
-      <input id="s_url" placeholder="https://my-mcp-server/mcp" />
-      <label>Bearer Token <span class="field-opt">(optional)</span></label>
-      <input id="s_token" type="password" placeholder="sk-…" />
-    </div>
-    <div id="s_stdioFields" style="display:none">
-      <label>Command <span class="req">*</span></label>
-      <input id="s_command" placeholder="npx my-mcp-server" />
-      <label>Args <span class="field-opt">(one per line)</span></label>
-      <textarea id="s_args" placeholder="--arg1&#10;value1"></textarea>
-      <label>Working Directory <span class="field-opt">(optional)</span></label>
-      <input id="s_workdir" placeholder="/path/to/workdir" />
-    </div>
-    <label>Custom Headers <span class="field-opt">(one per line, key: value)</span></label>
-    <textarea id="s_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
-    <details>
-      <summary>OAuth 2.0 (client credentials)</summary>
-      <div>
-        <label class="check-inline"><input type="checkbox" id="s_oauth_enabled" /> Enable OAuth</label>
-        <label>Token URL</label>
-        <input id="s_oauth_url" placeholder="https://auth.example.com/oauth/token" />
-        <label>Client ID</label>
-        <input id="s_oauth_id" placeholder="client-id" />
-        <label>Client Secret</label>
-        <input id="s_oauth_secret" type="password" placeholder="client-secret" />
-        <label>Scopes <span class="field-opt">(space separated)</span></label>
-        <input id="s_oauth_scopes" placeholder="read write" />
+  <div class="modal modal-form" style="display:flex;flex-direction:column;padding:0;overflow:hidden;max-height:calc(100vh - 32px);max-width:740px">
+    <div class="modal-head" style="display:flex;align-items:flex-start;gap:16px;padding:26px 28px 22px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="width:46px;height:46px;border-radius:14px;background:var(--accent-soft);display:grid;place-items:center;flex-shrink:0;color:var(--accent-hover)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       </div>
-    </details>
+      <div style="flex:1;min-width:0;padding-top:3px">
+        <div style="font-size:17px;font-weight:700;margin:0 0 4px;color:var(--text);letter-spacing:-.25px">Add Upstream Server</div>
+        <div style="color:var(--muted);font-size:13px;line-height:1.55">Register an MCP server. Its tools are fetched automatically once added.</div>
+      </div>
+      <button onclick="closeModal('addServerModal')" title="Close" style="flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);cursor:pointer;width:32px;height:32px;display:grid;place-items:center;font-size:15px;border-radius:9px;margin:-4px -4px 0 0;transition:background .15s,color .15s">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;padding:24px 28px;flex:1;min-height:0">
+      <label>Name <span class="req">*</span></label>
+      <input id="s_name" placeholder="my-server" autocomplete="off" />
+      <span class="field-hint">A unique identifier used to namespace this server's tools (e.g. <code>github</code>).</span>
+
+      <label style="margin-top:24px">Transport Type</label>
+      <div data-tgrid style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+        <div class="transport-card active" onclick="selectTransport('s','StreamableHttp')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--accent);background:var(--accent-soft)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#fff;transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">HTTP</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Streamable</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('s','Sse')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">SSE</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Event stream</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('s','Stdio')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">Stdio</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Subprocess</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('s','RestOpenApi')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">REST / API</div><div style="font-size:10px;color:var(--muted);margin-top:1px">OpenAPI</div></div>
+        </div>
+      </div>
+      <select id="s_transport" style="display:none" onchange="updateServerForm()">
+        <option value="StreamableHttp">StreamableHttp</option>
+        <option value="Sse">Sse</option>
+        <option value="Stdio">Stdio</option>
+        <option value="RestOpenApi">RestOpenApi</option>
+      </select>
+
+      <div id="s_httpFields">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Connection</span></div>
+        <label>Server URL <span class="req">*</span></label>
+        <input id="s_url" placeholder="https://my-mcp-server/mcp" autocomplete="off" />
+        <label>Bearer Token <span class="field-opt">(optional)</span></label>
+        <input id="s_token" type="password" placeholder="sk-…" autocomplete="new-password" />
+      </div>
+
+      <div id="s_stdioFields" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Process</span></div>
+        <label>Command <span class="req">*</span></label>
+        <input id="s_command" placeholder="npx my-mcp-server" />
+        <label>Args <span class="field-opt">(one per line)</span></label>
+        <textarea id="s_args" placeholder="--arg1&#10;value1" style="min-height:64px"></textarea>
+        <label>Working Directory <span class="field-opt">(optional)</span></label>
+        <input id="s_workdir" placeholder="/path/to/workdir" />
+      </div>
+
+      <div id="s_restFields" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">OpenAPI Spec</span></div>
+        <label>Spec URL</label>
+        <input id="s_rest_specurl" placeholder="https://api.example.com/openapi.json" />
+        <span class="field-hint">OpenAPI 3.x or Swagger 2.0 (JSON). Or paste the document below.</span>
+        <label>Paste spec <span class="field-opt">(JSON, if no URL)</span></label>
+        <textarea id="s_rest_inlinespec" placeholder='{ "openapi": "3.0.0", ... }' style="min-height:72px"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">API Connection</span></div>
+        <label>Base URL override <span class="field-opt">(optional)</span></label>
+        <input id="s_rest_baseurl" placeholder="https://api.example.com" />
+        <label>Bearer Token <span class="field-opt">(optional)</span></label>
+        <input id="s_rest_token" type="password" placeholder="sk-…" autocomplete="new-password" />
+        <label class="check-inline" style="text-transform:none;font-size:12.5px;margin-top:12px"><input type="checkbox" id="s_rest_private" checked /> Allow private / loopback addresses</label>
+        <div class="rest-ops-bar">
+          <button type="button" class="btn ghost sm" onclick="previewRestOps()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:5px;vertical-align:middle"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            <span id="s_rest_loadlabel">Load operations</span>
+          </button>
+          <span id="s_rest_meta" class="rest-ops-meta"></span>
+        </div>
+        <div id="s_rest_ops" class="rest-ops-list"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Advanced</span></div>
+      <label>Custom Headers <span class="field-opt">(key: value, one per line)</span></label>
+      <textarea id="s_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme" style="min-height:60px"></textarea>
+
+      <details style="margin-top:14px">
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer;font-weight:600;letter-spacing:.3px;text-transform:uppercase;outline:none">OAuth 2.0 — Client Credentials</summary>
+        <div style="margin-top:10px">
+          <label class="check-inline"><input type="checkbox" id="s_oauth_enabled" /> Enable OAuth</label>
+          <label>Token URL</label><input id="s_oauth_url" placeholder="https://auth.example.com/oauth/token" />
+          <label>Client ID</label><input id="s_oauth_id" placeholder="client-id" />
+          <label>Client Secret</label><input id="s_oauth_secret" type="password" placeholder="client-secret" />
+          <label>Scopes <span class="field-opt">(space separated)</span></label><input id="s_oauth_scopes" placeholder="read write" />
+        </div>
+      </details>
+    </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeModal('addServerModal')">Cancel</button>
-      <button class="btn" onclick="addServer()">Add Server</button>
+      <button class="btn" onclick="addServer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:5px;vertical-align:middle"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Server
+      </button>
     </div>
   </div>
 </div>
@@ -744,7 +903,7 @@
 
 <!-- Confirm Modal -->
 <div class="modal-backdrop" id="confirmModal">
-  <div class="modal" style="min-width:400px">
+  <div class="modal" style="max-width:440px">
     <h3>
       <span class="modal-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
       <span id="confirmTitle">Are you sure?</span>
@@ -864,50 +1023,109 @@
 
 <!-- Edit Server Modal -->
 <div class="modal-backdrop" id="editServerModal">
-  <div class="modal">
-    <h3>Edit Server</h3>
-    <p class="modal-desc">Update the server configuration. Leave token blank to keep it unchanged.</p>
-    <label>Name <span class="req">*</span></label>
-    <input id="es_name" placeholder="my-server" />
-    <label>Transport Type</label>
-    <select id="es_transport" onchange="updateEditServerForm()">
-      <option value="StreamableHttp">Streamable HTTP</option>
-      <option value="Sse">SSE (legacy)</option>
-      <option value="Stdio">Stdio / subprocess</option>
-    </select>
-    <div id="es_httpFields">
-      <label>Server URL <span class="req">*</span></label>
-      <input id="es_url" placeholder="https://my-mcp-server/mcp" />
-      <label>Bearer Token <span class="field-opt">(leave blank to keep unchanged)</span></label>
-      <input id="es_token" type="password" placeholder="sk-…" />
-    </div>
-    <div id="es_stdioFields" style="display:none">
-      <label>Command <span class="req">*</span></label>
-      <input id="es_command" placeholder="npx my-mcp-server" />
-      <label>Args <span class="field-opt">(one per line)</span></label>
-      <textarea id="es_args" placeholder="--arg1&#10;value1"></textarea>
-      <label>Working Directory <span class="field-opt">(optional)</span></label>
-      <input id="es_workdir" placeholder="/path/to/workdir" />
-    </div>
-    <label>Custom Headers <span class="field-opt">(one per line, key: value)</span></label>
-    <textarea id="es_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme"></textarea>
-    <details>
-      <summary>OAuth 2.0 (client credentials)</summary>
-      <div>
-        <label class="check-inline"><input type="checkbox" id="es_oauth_enabled" /> Enable OAuth</label>
-        <label>Token URL</label>
-        <input id="es_oauth_url" placeholder="https://auth.example.com/oauth/token" />
-        <label>Client ID</label>
-        <input id="es_oauth_id" placeholder="client-id" />
-        <label>Client Secret <span class="field-opt">(leave blank to keep)</span></label>
-        <input id="es_oauth_secret" type="password" placeholder="client-secret" />
-        <label>Scopes <span class="field-opt">(space separated)</span></label>
-        <input id="es_oauth_scopes" placeholder="read write" />
+  <div class="modal modal-form" style="display:flex;flex-direction:column;padding:0;overflow:hidden;max-height:calc(100vh - 32px);max-width:740px">
+    <div class="modal-head" style="display:flex;align-items:flex-start;gap:16px;padding:26px 28px 22px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="width:46px;height:46px;border-radius:14px;background:rgba(245,158,11,.14);display:grid;place-items:center;flex-shrink:0;color:var(--warning)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </div>
-    </details>
+      <div style="flex:1;min-width:0;padding-top:3px">
+        <div style="font-size:17px;font-weight:700;margin:0 0 4px;color:var(--text);letter-spacing:-.25px">Edit Server</div>
+        <div style="color:var(--muted);font-size:13px;line-height:1.55">Update the server configuration. Leave token blank to keep it unchanged.</div>
+      </div>
+      <button onclick="closeModal('editServerModal')" title="Close" style="flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);cursor:pointer;width:32px;height:32px;display:grid;place-items:center;font-size:15px;border-radius:9px;margin:-4px -4px 0 0;transition:background .15s,color .15s">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;padding:24px 28px;flex:1;min-height:0;background:rgba(0,0,0,.08)">
+      <label>Name <span class="req">*</span></label>
+      <input id="es_name" placeholder="my-server" autocomplete="off" />
+
+      <label style="margin-top:24px">Transport Type</label>
+      <div data-tgrid style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+        <div class="transport-card active" onclick="selectTransport('es','StreamableHttp')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--accent);background:var(--accent-soft)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#fff;transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">HTTP</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Streamable</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('es','Sse')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">SSE</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Event stream</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('es','Stdio')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">Stdio</div><div style="font-size:10px;color:var(--muted);margin-top:1px">Subprocess</div></div>
+        </div>
+        <div class="transport-card" onclick="selectTransport('es','RestOpenApi')" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:16px 8px 14px;border-radius:12px;cursor:pointer;user-select:none;min-width:0;overflow:hidden;border:1.5px solid var(--border);background:rgba(255,255,255,.02)">
+          <div data-icon style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);display:grid;place-items:center;color:var(--muted);transition:background .15s,color .15s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div><div style="font-size:12.5px;font-weight:600;color:var(--text)">REST / API</div><div style="font-size:10px;color:var(--muted);margin-top:1px">OpenAPI</div></div>
+        </div>
+      </div>
+      <select id="es_transport" style="display:none" onchange="updateEditServerForm()">
+        <option value="StreamableHttp">StreamableHttp</option>
+        <option value="Sse">Sse</option>
+        <option value="Stdio">Stdio</option>
+        <option value="RestOpenApi">RestOpenApi</option>
+      </select>
+
+      <div id="es_httpFields">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Connection</span></div>
+        <label>Server URL <span class="req">*</span></label>
+        <input id="es_url" placeholder="https://my-mcp-server/mcp" autocomplete="off" />
+        <label>Bearer Token <span class="field-opt">(leave blank to keep unchanged)</span></label>
+        <input id="es_token" type="password" placeholder="sk-…" autocomplete="new-password" />
+      </div>
+
+      <div id="es_stdioFields" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Process</span></div>
+        <label>Command <span class="req">*</span></label>
+        <input id="es_command" placeholder="npx my-mcp-server" />
+        <label>Args <span class="field-opt">(one per line)</span></label>
+        <textarea id="es_args" placeholder="--arg1&#10;value1" style="min-height:64px"></textarea>
+        <label>Working Directory <span class="field-opt">(optional)</span></label>
+        <input id="es_workdir" placeholder="/path/to/workdir" />
+      </div>
+
+      <div id="es_restFields" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">OpenAPI Spec</span></div>
+        <label>Spec URL</label>
+        <input id="es_rest_specurl" placeholder="https://api.example.com/openapi.json" />
+        <span class="field-hint">OpenAPI 3.x or Swagger 2.0 (JSON). Or paste the document below.</span>
+        <label>Paste spec <span class="field-opt">(JSON, if no URL)</span></label>
+        <textarea id="es_rest_inlinespec" placeholder='{ "openapi": "3.0.0", ... }' style="min-height:72px"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">API Connection</span></div>
+        <label>Base URL override <span class="field-opt">(optional)</span></label>
+        <input id="es_rest_baseurl" placeholder="https://api.example.com" />
+        <label>Bearer Token <span class="field-opt">(leave blank to keep unchanged)</span></label>
+        <input id="es_rest_token" type="password" placeholder="sk-…" autocomplete="new-password" />
+        <label class="check-inline" style="text-transform:none;font-size:12.5px;margin-top:12px"><input type="checkbox" id="es_rest_private" checked /> Allow private / loopback addresses</label>
+        <div class="rest-ops-bar">
+          <button type="button" class="btn ghost sm" onclick="previewRestOps('es')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:5px;vertical-align:middle"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            <span id="es_rest_loadlabel">Load operations</span>
+          </button>
+          <span id="es_rest_meta" class="rest-ops-meta"></span>
+        </div>
+        <div id="es_rest_ops" class="rest-ops-list"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin:24px 0 12px"><div style="width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0"></div><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim)">Advanced</span></div>
+      <label>Custom Headers <span class="field-opt">(key: value, one per line)</span></label>
+      <textarea id="es_headers" placeholder="X-Api-Key: abc123&#10;X-Tenant: acme" style="min-height:60px"></textarea>
+
+      <details style="margin-top:14px">
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer;font-weight:600;letter-spacing:.3px;text-transform:uppercase;outline:none">OAuth 2.0 — Client Credentials</summary>
+        <div style="margin-top:10px">
+          <label class="check-inline"><input type="checkbox" id="es_oauth_enabled" /> Enable OAuth</label>
+          <label>Token URL</label><input id="es_oauth_url" placeholder="https://auth.example.com/oauth/token" />
+          <label>Client ID</label><input id="es_oauth_id" placeholder="client-id" />
+          <label>Client Secret <span class="field-opt">(leave blank to keep)</span></label><input id="es_oauth_secret" type="password" placeholder="client-secret" />
+          <label>Scopes <span class="field-opt">(space separated)</span></label><input id="es_oauth_scopes" placeholder="read write" />
+        </div>
+      </details>
+    </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeModal('editServerModal')">Cancel</button>
-      <button class="btn" onclick="saveEditServer()">Save Changes</button>
+      <button class="btn" onclick="saveEditServer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:5px;vertical-align:middle"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Changes
+      </button>
     </div>
   </div>
 </div>

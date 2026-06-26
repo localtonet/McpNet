@@ -41,13 +41,4 @@ namespace McpNet.Gateway.Abstractions
         Task AddAsync(AuditLog log, CancellationToken ct = default);
         Task<List<AuditLog>> GetRecentAsync(int count = 100, CancellationToken ct = default);
     }
-
-    /// <summary>
-    /// Persists the enabled/disabled state of individual tools across gateway restarts.
-    /// </summary>
-    public interface IToolStateStore
-    {
-        Task<Dictionary<string, bool>> LoadAsync(CancellationToken ct = default);
-        Task SaveAsync(Dictionary<string, bool> state, CancellationToken ct = default);
-    }
 }

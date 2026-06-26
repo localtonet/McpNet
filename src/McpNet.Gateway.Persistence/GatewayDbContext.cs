@@ -30,19 +30,10 @@ namespace McpNet.Gateway.Persistence
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                         v => JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(v, (JsonSerializerOptions?)null)!);
-                e.Property(x => x.StdioEnvVars)
-                    .HasConversion(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                        v => JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, string>>(v, (JsonSerializerOptions?)null)!);
                 e.Property(x => x.OAuth)
                     .HasConversion(
                         v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                         v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<OAuthConfig>(v, (JsonSerializerOptions?)null));
-                e.Property(x => x.ToolAliases)
-                    .HasConversion(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                        v => JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, string>>(v, (JsonSerializerOptions?)null)!);
-                // CacheTtlSeconds and AutoRestart are primitive columns - no converter needed.
             });
 
             modelBuilder.Entity<ToolGroup>(e =>
@@ -68,10 +59,6 @@ namespace McpNet.Gateway.Persistence
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                         v => JsonSerializer.Deserialize<System.Collections.Generic.List<Guid>>(v, (JsonSerializerOptions?)null)!);
-                e.Property(x => x.ServerRateLimits)
-                    .HasConversion(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                        v => JsonSerializer.Deserialize<System.Collections.Generic.List<ServerRateLimit>>(v, (JsonSerializerOptions?)null)!);
             });
 
             modelBuilder.Entity<UserAccount>(e =>

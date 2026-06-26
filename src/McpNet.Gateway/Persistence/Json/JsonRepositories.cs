@@ -17,8 +17,6 @@ namespace McpNet.Gateway.Persistence.Json
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
-        // In-memory cache; populated on first disk read or write; guarded by _lock.
-        private List<T>? _cache;
 
         protected JsonFileStore(string filePath)
         {
@@ -34,29 +32,16 @@ namespace McpNet.Gateway.Persistence.Json
         /// Must return a COPY - do not mutate the in-memory item.</summary>
         protected virtual T OnSave(T item) => item;
 
-        /// <summary>Called after _cache is refreshed (first load or any write). Override to rebuild
-        /// secondary indexes (e.g. token → client lookup dictionary).</summary>
-        protected virtual void OnCacheUpdated(List<T> items) { }
-
         protected async Task<List<T>> LoadAsync(CancellationToken ct)
         {
-            // Serve from in-memory cache; populated on first disk read or after any write.
-            if (_cache != null)
-            {
-                OnCacheUpdated(_cache);
-                return new List<T>(_cache);
-            }
-
-            if (!File.Exists(_filePath)) { _cache = new List<T>(); return new List<T>(); }
+            if (!File.Exists(_filePath)) return new List<T>();
             var json = await File.ReadAllTextAsync(_filePath, ct).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(json)) { _cache = new List<T>(); return new List<T>(); }
+            if (string.IsNullOrWhiteSpace(json)) return new List<T>();
             var items = McpJsonOptions.Deserialize<List<T>>(json) ?? new List<T>();
             // Decrypt secrets on load
             for (int i = 0; i < items.Count; i++)
                 items[i] = OnLoad(items[i]);
-            _cache = items;
-            OnCacheUpdated(_cache);
-            return new List<T>(items);
+            return items;
         }
 
         protected async Task SaveAsync(List<T> items, CancellationToken ct)
@@ -71,9 +56,6 @@ namespace McpNet.Gateway.Persistence.Json
             var tmp = _filePath + ".tmp";
             await File.WriteAllTextAsync(tmp, json, ct).ConfigureAwait(false);
             File.Move(tmp, _filePath, overwrite: true);
-            // Update cache with the freshly saved (decrypted) items.
-            _cache = new List<T>(items);
-            OnCacheUpdated(_cache);
         }
 
         protected async Task<List<T>> MutateAsync(Func<List<T>, bool> mutation, CancellationToken ct)
@@ -140,6 +122,17 @@ namespace McpNet.Gateway.Persistence.Json
                 ClientId     = s.OAuth.ClientId,
                 ClientSecret = s.OAuth.ClientSecret,
                 Scopes       = s.OAuth.Scopes
+            },
+            Rest                 = s.Rest == null ? null : new RestApiConfig
+            {
+                SpecUrl            = s.Rest.SpecUrl,
+                InlineSpec         = s.Rest.InlineSpec,
+                BaseUrl            = s.Rest.BaseUrl,
+                IncludeMethods     = new List<string>(s.Rest.IncludeMethods),
+                IncludeOperations  = new List<string>(s.Rest.IncludeOperations),
+                ExcludeOperations  = new List<string>(s.Rest.ExcludeOperations),
+                MaxTools           = s.Rest.MaxTools,
+                AllowPrivateNetwork = s.Rest.AllowPrivateNetwork
             },
             CreatedAt            = s.CreatedAt,
             UpdatedAt            = s.UpdatedAt
@@ -242,20 +235,6 @@ namespace McpNet.Gateway.Persistence.Json
             return copy;
         }
 
-        // Token → client index; atomic reference replacement makes TryGetValue safe from any thread.
-        private volatile Dictionary<string, McpClient> _tokenIndex =
-            new Dictionary<string, McpClient>(StringComparer.Ordinal);
-
-        /// <summary>Rebuilds the bearer-token lookup index whenever the cache is refreshed.</summary>
-        protected override void OnCacheUpdated(List<McpClient> items)
-        {
-            var idx = new Dictionary<string, McpClient>(items.Count, StringComparer.Ordinal);
-            foreach (var c in items)
-                if (c.Enabled && !string.IsNullOrEmpty(c.BearerToken))
-                    idx[c.BearerToken] = c;
-            _tokenIndex = idx; // atomic reference replacement
-        }
-
         private static McpClient CloneClient(McpClient c) => new McpClient
         {
             Id                 = c.Id,
@@ -276,13 +255,7 @@ namespace McpNet.Gateway.Persistence.Json
             => (await GetAllAsync(ct)).FirstOrDefault(c => c.Id == id);
 
         public async Task<McpClient?> GetByTokenAsync(string bearerToken, CancellationToken ct = default)
-        {
-            // O(1) lookup via in-memory index; falls back to a full load if the index is empty
-            // (i.e. nothing has been loaded from disk yet).
-            var idx = _tokenIndex;
-            if (idx.TryGetValue(bearerToken, out var cached)) return cached;
-            return (await GetAllAsync(ct)).FirstOrDefault(c => c.BearerToken == bearerToken);
-        }
+            => (await GetAllAsync(ct)).FirstOrDefault(c => c.BearerToken == bearerToken);
 
         public async Task<McpClient> AddAsync(McpClient client, CancellationToken ct = default)
         {
@@ -324,35 +297,12 @@ namespace McpNet.Gateway.Persistence.Json
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         }
 
-        private int _writeCount;
-        private const int RotateCheckInterval = 200; // check for trim every N appends
-
         public async Task AddAsync(AuditLog log, CancellationToken ct = default)
         {
             var line = McpJsonOptions.Serialize(log) + "\n";
             await _lock.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                await File.AppendAllTextAsync(_filePath, line, ct).ConfigureAwait(false);
-                // Periodically trim the file so it never grows beyond _maxEntries lines.
-                if (++_writeCount % RotateCheckInterval == 0)
-                    await TrimAsync(ct).ConfigureAwait(false);
-            }
+            try { await File.AppendAllTextAsync(_filePath, line, ct).ConfigureAwait(false); }
             finally { _lock.Release(); }
-        }
-
-        /// <summary>Truncates the NDJSON file to the most recent <see cref="_maxEntries"/> lines.</summary>
-        private async Task TrimAsync(CancellationToken ct)
-        {
-            if (!File.Exists(_filePath)) return;
-            var lines = await File.ReadAllLinesAsync(_filePath, ct).ConfigureAwait(false);
-            var nonEmpty = System.Array.FindAll(lines, l => !string.IsNullOrWhiteSpace(l));
-            if (nonEmpty.Length <= _maxEntries) return;
-            var keep = new string[_maxEntries];
-            System.Array.Copy(nonEmpty, nonEmpty.Length - _maxEntries, keep, 0, _maxEntries);
-            var tmp = _filePath + ".tmp";
-            await File.WriteAllLinesAsync(tmp, keep, ct).ConfigureAwait(false);
-            File.Move(tmp, _filePath, overwrite: true);
         }
 
         public async Task<List<AuditLog>> GetRecentAsync(int count = 100, CancellationToken ct = default)
@@ -374,48 +324,6 @@ namespace McpNet.Gateway.Persistence.Json
             }
             result.Reverse();
             return result;
-        }
-    }
-
-    // ─── Tool State Store ─────────────────────────────────────────────────────
-    /// <summary>
-    /// Persists tool enabled/disabled state as a JSON dictionary so the gateway
-    /// remembers which tools the user has toggled across restarts.
-    /// </summary>
-    public class JsonToolStateStore : IToolStateStore
-    {
-        private readonly string _filePath;
-        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
-
-        public JsonToolStateStore(string dataDirectory)
-        {
-            _filePath = Path.Combine(dataDirectory, "toolstate.json");
-            var dir = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        }
-
-        public async Task<Dictionary<string, bool>> LoadAsync(CancellationToken ct = default)
-        {
-            if (!File.Exists(_filePath))
-                return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            var json = await File.ReadAllTextAsync(_filePath, ct).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(json))
-                return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            return McpJsonOptions.Deserialize<Dictionary<string, bool>>(json)
-                ?? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        public async Task SaveAsync(Dictionary<string, bool> state, CancellationToken ct = default)
-        {
-            await _lock.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                var json = McpJsonOptions.Serialize(state);
-                var tmp  = _filePath + ".tmp";
-                await File.WriteAllTextAsync(tmp, json, ct).ConfigureAwait(false);
-                File.Move(tmp, _filePath, overwrite: true);
-            }
-            finally { _lock.Release(); }
         }
     }
 
