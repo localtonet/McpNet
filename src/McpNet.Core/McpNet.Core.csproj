@@ -4,10 +4,26 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- NuGet packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageId>McpNet.Core</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/localtonet/McpNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/localtonet/McpNet</PackageProjectUrl>
+    <Version>1.0.1</Version>
+    <Description>
+      Core MCP protocol types, JSON-RPC request/response models, and McpJsonOptions
+      for System.Text.Json serialisation. Targets netstandard2.0.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

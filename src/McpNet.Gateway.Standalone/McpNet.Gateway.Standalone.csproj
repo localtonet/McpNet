@@ -9,6 +9,10 @@
     <!-- NuGet packaging -->
     <IsPackable>true</IsPackable>
     <PackageId>McpNet.Gateway.Standalone</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/localtonet/McpNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/localtonet/McpNet</PackageProjectUrl>
     <Version>1.0.0</Version>
     <Description>
       Self-contained MCP Gateway using System.Net.HttpListener.
@@ -22,6 +26,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <ProjectReference Include="..\McpNet.Gateway\McpNet.Gateway.csproj" />
     <ProjectReference Include="..\McpNet.Transport.Http\McpNet.Transport.Http.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

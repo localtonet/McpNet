@@ -7,6 +7,10 @@
 		<!-- NuGet packaging -->
 		<IsPackable>true</IsPackable>
 		<PackageId>McpNet.Gateway</PackageId>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/localtonet/McpNet</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/localtonet/McpNet</PackageProjectUrl>
 		<Version>1.0.0</Version>
 
 	</PropertyGroup>
@@ -19,6 +23,10 @@
 	<!-- Dashboard static files - embedded so any host (ASP.NET Core or HttpListener) can serve them -->
 	<ItemGroup>
 		<EmbeddedResource Include="wwwroot\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>

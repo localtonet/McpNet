@@ -4,10 +4,27 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- NuGet packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageId>McpNet.Transport.Http</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/localtonet/McpNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/localtonet/McpNet</PackageProjectUrl>
+    <Version>1.0.1</Version>
+    <Description>
+      StreamableHTTP and SSE upstream transport for McpNet.Gateway.
+      Provides HttpListenerMcpTransport for embedding the gateway
+      without ASP.NET Core.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\McpNet.Gateway\McpNet.Gateway.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
