@@ -1,3 +1,15 @@
+[![NuGet](https://img.shields.io/nuget/v/McpNet.Gateway.Standalone.svg)](https://www.nuget.org/packages/McpNet.Gateway.Standalone)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/McpNet.Gateway.Standalone.svg)](https://www.nuget.org/packages/McpNet.Gateway.Standalone)
+
+[![NuGet](https://img.shields.io/nuget/v/McpNet.Gateway.svg)](https://www.nuget.org/packages/McpNet.Gateway)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/McpNet.Gateway.svg)](https://www.nuget.org/packages/McpNet.Gateway)
+
+[![NuGet](https://img.shields.io/nuget/v/McpNet.Core.svg)](https://www.nuget.org/packages/McpNet.Core)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/McpNet.Core.svg)](https://www.nuget.org/packages/McpNet.Core)
+
+[![NuGet](https://img.shields.io/nuget/v/McpNet.Transport.Http.svg)](https://www.nuget.org/packages/McpNet.Transport.Http)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/McpNet.Transport.Http.svg)](https://www.nuget.org/packages/McpNet.Transport.Http)
+
 # McpNet Gateway
 
 > **A high-performance, enterprise-ready Model Context Protocol (MCP) gateway for .NET 8.**  
